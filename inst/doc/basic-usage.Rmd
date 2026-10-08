@@ -1,0 +1,258 @@
+---
+title: "Getting started with tidymatrix"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with tidymatrix}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+has_ggplot2 <- requireNamespace("ggplot2", quietly = TRUE)
+has_pheatmap <- requireNamespace("pheatmap", quietly = TRUE)
+```
+
+Many datasets are a matrix with two tables attached: survey answers with information about the respondents and the questions, gene expression with gene and sample annotations, sales per shop and product. Kept as three separate objects, every filter or reordering has to be applied to all three at once, and it is easy to end up with a matrix that no longer lines up with its metadata.
+
+`tidymatrix` keeps the three pieces together in one object and lets you manipulate it with the dplyr verbs you already know. Much like `tidygraph` does for networks, you `activate()` the part you want to work on (rows, columns or the matrix itself) and the rest follows along.
+
+This vignette is a quick tour. Each section shows a few self-contained examples and links to a vignette that covers the topic in depth.
+
+```{r load-packages}
+library(tidymatrix)
+library(dplyr, warn.conflicts = FALSE)
+```
+
+## The example data
+
+All vignettes use `big5`, a simulated personality survey that ships with the package. 400 people answered 30 statements such as *"I worry about things"* on a scale from 1 (strongly disagree) to 5 (strongly agree). Each statement measures one of the Big Five personality traits, and two statements per trait are *reverse-keyed*: agreeing with *"I keep in the background"* means *low* extraversion.
+
+The data come as three pieces: the answers,
+
+```{r data-matrix}
+big5_responses[1:5, 1:8]
+```
+
+what we know about the respondents,
+
+```{r data-rows}
+head(big5_respondents)
+```
+
+and what we know about the questions.
+
+```{r data-cols}
+head(big5_items)
+```
+
+`tidymatrix()` puts them together. Row metadata must have one row per matrix row, column metadata one row per matrix column.
+
+```{r create}
+tm <- tidymatrix(big5_responses, big5_respondents, big5_items)
+tm
+```
+
+## Working with rows and columns
+
+`activate(rows)` makes dplyr verbs act on the respondents, `activate(columns)` on the questions. The matrix is subset and reordered to match automatically.
+
+About 3% of the respondents clicked through the survey in a couple of minutes. Removing them is a filter on the rows, but shows up also on the dimensions of the matrix, as the rows are filtered:
+
+```{r filter-rows}
+tm_clean <- tm |>
+  activate(rows) |>
+  filter(completion_min > 3.5)
+
+tm_clean |> 
+  activate(matrix)
+```
+
+Keep only the neuroticism items, in the order they were asked:
+
+```{r filter-cols}
+tm_clean |>
+  activate(columns) |>
+  filter(trait == "Neuroticism") |>
+  arrange(position)
+```
+
+`mutate()`, `select()`, `rename()`, `slice()` and friends work the same way. Grouping and summarising aggregate the matrix as well as the metadata. Here we summarise the respondents by country: the metadata gets one row per country, and the matrix one row per country holding the average answer to each item.
+
+```{r summarise}
+by_country <- tm_clean |>
+  activate(rows) |>
+  group_by(country) |>
+  summarise(n = n(), mean_age = mean(age))
+
+by_country
+
+by_country |>
+  activate(matrix) |>
+  transform_matrix(round, digits = 2)
+```
+
+**More:** `vignette("dplyr-verbs", package = "tidymatrix")` — [Working with rows and columns](dplyr-verbs.html).
+
+## Joins
+
+Joins add information from another table to the active metadata. The package includes a small country table:
+
+```{r countries}
+big5_countries
+```
+
+```{r join}
+tm_clean |>
+  activate(rows) |>
+  left_join(big5_countries, by = "country") |>
+  select(respondent_id, country, country_name, region)
+```
+
+Germany is missing from the country table, so German respondents get `NA`. `anti_join()` finds them, and `inner_join()` would drop them together with their rows of the matrix.
+
+```{r anti-join}
+tm_clean |>
+  activate(rows) |>
+  anti_join(big5_countries, by = "country") |>
+  pull(country) |>
+  table()
+```
+
+**More:** [Joins](joins.html).
+
+## Matrix operations {#matrix-operations}
+
+Questionnaires usually word some statements in the opposite direction, so that people who agree with everything do not automatically get a high score. These are called *reverse-keyed* items. In `big5`, *"I start conversations"* measures extraversion directly, but *"I keep in the background"* is reverse-keyed: strongly agreeing with it (5) means *low* extraversion. Before items can be combined, the answers to reverse-keyed items are flipped (1 ↔ 5, 2 ↔ 4, 3 stays), so that a high value always means a high trait level. The `reversed` column of the item metadata says which items need flipping.
+
+`transform_matrix()` applies a function to the whole matrix, to each row or to each column, depending on what is active. With rows active the function receives one respondent's answers, and extra arguments can refer to the column metadata — here the `reversed` flag of each item:
+
+```{r reverse}
+tm_scored <- tm_clean |>
+  activate(rows) |>
+  transform_matrix(\(x, flip) ifelse(flip, 6L - x, x), flip = reversed)
+```
+
+In `tm_scored`, averaging a respondent's answers within a trait now gives a meaningful trait score. Scaling, centering, clipping, transposing and summary statistics are also available:
+
+```{r matrix-ops}
+tm_scored |>
+  activate(columns) |>
+  scale() |>                 # z-score each item
+  activate(matrix) |>
+  clip_values(min = -2, max = 2) |>
+  activate(rows) |>
+  add_stats(mean, sd)        # per-respondent mean and sd into row metadata
+```
+
+**More:** [Matrix operations](matrix-operations.html).
+
+## PCA, clustering and MDS
+
+Analysis functions store their results where they belong: coordinates and cluster labels become metadata columns, and the full result object is kept for later. With columns active, each item becomes a point:
+
+```{r pca}
+tm_items <- tm_scored |>
+  activate(columns) |>
+  compute_prcomp(n_components = 2) |>
+  compute_hclust(k = 5, method = "ward.D2") |>
+  compute_mds(k = 2)
+
+tm_items |>
+  activate(columns) |>
+  select(item_id, trait, column_pca_PC1, column_pca_PC2, column_hclust_cluster)
+
+list_analyses(tm_items)
+```
+
+The clustering recovers the five traits from the answers alone:
+
+```{r pca-check}
+tm_items |>
+  activate(columns) |>
+  as_tibble() |>
+  count(trait, column_hclust_cluster)
+```
+
+**More:** [PCA and clustering](statistical-analysis.html) and [MDS, t-SNE and UMAP](dimensionality-reduction.html).
+
+## Statistics for every row or column
+
+`compute_ttest()`, `compute_correlation()`, `compute_lm()` and others fit one test per item (or per respondent) and return a tidy table. Do women and men answer differently?
+
+```{r ttest}
+gender_tests <- tm_scored |>
+  activate(rows) |>
+  filter(gender %in% c("Female", "Male")) |>
+  activate(columns) |>
+  compute_ttest(group_col = "gender", control = "Male", treatment = "Female")
+
+gender_tests |>
+  filter(p.adj < 0.05) |>
+  select(item_id, trait, item_text, p.value, p.adj)
+```
+
+The differences concentrate on agreeableness and neuroticism, as in real personality data. `compute_across()` lets you run any function of your own in the same way.
+
+**More:** [Row- and column-wise statistics](row-wise-statistics.html).
+
+## Plotting and exporting
+
+The metadata is an ordinary data frame, so plotting the item PCA is one `as_tibble()` away:
+
+```{r plot-pca, eval = has_ggplot2}
+library(ggplot2)
+
+tm_items |>
+  activate(columns) |>
+  as_tibble() |>
+  ggplot(aes(column_pca_PC1, column_pca_PC2, colour = trait, label = item_id)) +
+  geom_text() +
+  labs(x = "PC1", y = "PC2", colour = NULL) +
+  theme_minimal()
+```
+
+`to_long()` turns the whole object into one row per matrix cell, with all the metadata attached, ready for ggplot2 or for writing to a file:
+
+```{r to-long}
+tm_scored |>
+  to_long() |>
+  select(respondent_id, gender, item_id, trait, value) |>
+  head()
+```
+
+`plot_pheatmap()` draws a heatmap with the metadata as annotations and reuses stored clusterings:
+
+```{r heatmap, eval = has_pheatmap, fig.height = 6}
+tm_scored |>
+  activate(columns) |>
+  scale() |>
+  compute_hclust(method = "ward.D2") |>
+  activate(rows) |>
+  compute_hclust(method = "ward.D2") |>
+  plot_pheatmap(
+    col_names = "item_id",
+    row_annotation = c("gender", "age"),
+    col_annotation = "trait",
+    show_rownames = FALSE
+  )
+```
+
+**More:** [Plotting and exporting](visualization.html).
+
+## Where next
+
+| Vignette | Covers |
+|------------------------------------|------------------------------------|
+| [Working with rows and columns](dplyr-verbs.html) | `filter()`, `mutate()`, `arrange()`, `slice()`, grouping and summarising |
+| [Joins](joins.html) | Adding external annotations; all six join types |
+| [Matrix operations](matrix-operations.html) | Transformations, scaling, clipping, transposing, statistics |
+| [PCA and clustering](statistical-analysis.html) | `compute_prcomp()`, `compute_hclust()`, `compute_kmeans()`, stored analyses |
+| [MDS, t-SNE and UMAP](dimensionality-reduction.html) | Non-linear and distance-based embeddings |
+| [Row- and column-wise statistics](row-wise-statistics.html) | t-tests, correlations, linear models, ANOVA, custom functions |
+| [Plotting and exporting](visualization.html) | ggplot2, heatmaps, `to_long()`, getting data out |

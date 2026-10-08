@@ -1,0 +1,296 @@
+---
+title: "Row- and column-wise statistics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Row- and column-wise statistics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+A common task with matrix data is to fit the same test or model to every row
+or every column: which genes differ between conditions, which survey questions
+are answered differently by different groups. tidymatrix does this with
+`compute_across()` and a set of wrappers around standard tests.
+
+The active component decides the direction. With **columns** active, the
+function is applied to each column, and the *row* metadata supplies the
+variables to test against. With **rows** active it is the other way round.
+
+```{r load-packages}
+library(tidymatrix)
+library(dplyr, warn.conflicts = FALSE)
+```
+
+## Data
+
+We use the `big5` personality survey (see `?big5`), with careless respondents
+removed and reverse-keyed items re-scored, so that a higher value always means
+more of the trait (see [Matrix operations](matrix-operations.html)).
+
+```{r data}
+tm <- tidymatrix(big5_responses, big5_respondents, big5_items) |>
+  activate(rows) |>
+  filter(completion_min > 3.5) |>
+  transform_matrix(\(x, flip) ifelse(flip, 6L - x, x), flip = reversed)
+```
+
+## Comparing two groups
+
+### t-test
+
+Do women and men answer the items differently? The survey also has a few
+non-binary respondents, too few for a separate group, so we compare women and
+men only:
+
+```{r ttest}
+tm_fm <- tm |>
+  activate(rows) |>
+  filter(gender %in% c("Female", "Male"))
+
+ttest <- tm_fm |>
+  activate(columns) |>
+  compute_ttest(group_col = "gender", control = "Male", treatment = "Female")
+
+ttest |>
+  select(item_id, trait, p.value, log2fc, p.adj) |>
+  arrange(p.value)
+```
+
+The result has one row per item: the item metadata, followed by the p-value,
+the log2 ratio of the group means (`treatment / control`) and the FDR-adjusted
+p-value. If you leave out `control` and `treatment`, they are inferred — in
+the order of the factor levels, or alphabetically for other columns — and a
+message reports which comparison was made. Setting them explicitly documents
+the direction of the fold change and also lets you compare two groups out of
+several without filtering first.
+
+Which traits do the significant items belong to?
+
+```{r ttest-traits}
+ttest |>
+  filter(p.adj < 0.05) |>
+  count(trait)
+```
+
+Women score higher on agreeableness and neuroticism items — the same pattern
+as in real personality data.
+
+Arguments not used by `compute_ttest()` go to `t.test()`, e.g.
+`var.equal = TRUE`. Use `adjust` to choose another `p.adjust()` method, or
+`adjust = "none"` to skip the adjustment.
+
+### Wilcoxon test
+
+Likert answers are ordinal, so a rank-based test is a reasonable alternative.
+`compute_wilcox()` has the same interface and adds the difference in medians:
+
+```{r wilcox}
+tm_fm |>
+  activate(columns) |>
+  compute_wilcox(group_col = "gender", control = "Male", treatment = "Female") |>
+  filter(p.adj < 0.05) |>
+  select(item_id, trait, median_diff, p.value, p.adj)
+```
+
+## Continuous variables
+
+### Correlation
+
+`compute_correlation()` correlates each item with a numeric metadata variable
+(`method` can be `"pearson"`, `"spearman"` or `"kendall"`; note that the
+rank-based methods warn about ties with Likert data). Personality changes
+slowly over adulthood:
+
+```{r correlation}
+age_cor <- tm |>
+  activate(columns) |>
+  compute_correlation(var = "age")
+
+age_cor |>
+  filter(p.adj < 0.05) |>
+  select(item_id, trait, correlation, p.adj) |>
+  arrange(correlation)
+```
+
+Neuroticism items correlate negatively with age, conscientiousness and
+agreeableness items positively.
+
+### Simple regression
+
+`compute_lm_simple()` fits `value ~ predictor` and reports the slope, intercept
+and R²:
+
+```{r lm-simple}
+tm |>
+  activate(columns) |>
+  compute_lm_simple(predictor = "life_satisfaction") |>
+  select(item_id, trait, slope, r.squared, p.adj) |>
+  arrange(slope)
+```
+
+### Multiple regression
+
+`compute_lm()` takes the right-hand side of a model formula, so you can adjust
+for other variables. With `coef` set, it reports that coefficient; without it,
+the overall fit of the model.
+
+Is the gender difference in neuroticism still there after adjusting for age
+and education? We make `Male` the reference level so that the coefficient is
+called `genderFemale`:
+
+```{r lm-multiple}
+tm_fm <- tm_fm |>
+  activate(rows) |>
+  mutate(gender = factor(gender, levels = c("Male", "Female")))
+
+tm_fm |>
+  activate(columns) |>
+  filter(trait == "Neuroticism") |>
+  compute_lm(~ age + gender + education, coef = "genderFemale") |>
+  select(item_id, item_text, estimate, se, p.adj)
+```
+
+```{r lm-overall}
+tm_fm |>
+  activate(columns) |>
+  compute_lm(~ age + gender + education) |>
+  select(item_id, trait, r.squared, p.value) |>
+  arrange(desc(r.squared)) |>
+  head()
+```
+
+## More than two groups
+
+`compute_anova()` and its rank-based counterpart `compute_kruskal()` compare
+several groups. Openness increases with education:
+
+```{r anova}
+tm |>
+  activate(columns) |>
+  compute_anova(group_col = "education") |>
+  filter(p.adj < 0.05) |>
+  select(item_id, trait, f.statistic, p.adj)
+```
+
+```{r kruskal}
+tm |>
+  activate(columns) |>
+  compute_kruskal(group_col = "occupation") |>
+  filter(p.adj < 0.05) |>
+  select(item_id, trait, statistic, p.adj)
+```
+
+## Your own function: `compute_across()`
+
+All the wrappers above are built on `compute_across()`. It takes a function
+of two arguments — the values of one row or column, and the full metadata of
+the other dimension — that returns a named list or vector. Each element becomes
+a column of the result.
+
+For example, an effect size is often more useful than a p-value. Cohen's *d*
+for the gender difference:
+
+```{r custom}
+cohens_d <- function(values, respondents) {
+  f <- values[respondents$gender == "Female"]
+  m <- values[respondents$gender == "Male"]
+  pooled_sd <- sqrt(
+    ((length(f) - 1) * var(f) + (length(m) - 1) * var(m)) /
+      (length(f) + length(m) - 2)
+  )
+  list(
+    mean_female = mean(f),
+    mean_male = mean(m),
+    d = (mean(f) - mean(m)) / pooled_sd
+  )
+}
+
+effect_sizes <- tm_fm |>
+  activate(columns) |>
+  compute_across(cohens_d)
+
+effect_sizes |>
+  group_by(trait) |>
+  summarise(mean_d = mean(d), min_d = min(d), max_d = max(d))
+```
+
+Extra arguments to `compute_across()` are passed on to the function, and errors
+in individual rows or columns become warnings rather than stopping the whole
+computation.
+
+## Row-wise statistics
+
+With rows active the function gets one respondent's answers together with the
+item metadata. A classic check for careless responding is the *longstring*
+index: the longest run of identical answers in the order the questions were
+asked. On the raw data, before removing anyone:
+
+```{r longstring}
+longstring <- function(answers, items) {
+  runs <- rle(answers[order(items$position)])
+  list(longstring = max(runs$lengths))
+}
+
+tidymatrix(big5_responses, big5_respondents, big5_items) |>
+  activate(rows) |>
+  compute_across(longstring) |>
+  arrange(desc(longstring)) |>
+  select(respondent_id, longstring, completion_min) |>
+  head(8)
+```
+
+The respondents who gave the same answer over and over are the ones who
+finished in two or three minutes.
+
+The function can return several values at once. Here, one score per trait:
+
+```{r trait-scores}
+tm |>
+  activate(rows) |>
+  compute_across(\(answers, items) tapply(answers, items$trait, mean)) |>
+  select(respondent_id, Agreeableness:Openness)
+```
+
+## Storing results in the metadata
+
+By default the result is returned as a separate tibble. With
+`add_to_data = TRUE` it is added to the active metadata instead, and the
+tidymatrix is returned. Use `prefix` to keep the columns of different analyses
+apart — `compute_across()` refuses to overwrite existing columns:
+
+```{r add-to-data}
+tm_stats <- tm_fm |>
+  activate(columns) |>
+  compute_ttest(
+    group_col = "gender", control = "Male", treatment = "Female",
+    add_to_data = TRUE, prefix = "gender"
+  ) |>
+  compute_correlation(var = "age", add_to_data = TRUE, prefix = "age") |>
+  compute_across(cohens_d, add_to_data = TRUE, prefix = "gender")
+
+tm_stats |>
+  activate(columns) |>
+  select(item_id, trait, gender_p.adj, gender_d, age_correlation, age_p.adj)
+```
+
+Now the statistics can be used like any other metadata, for example to keep
+only the items that differ between women and men:
+
+```{r filter-by-stats}
+tm_stats |>
+  activate(columns) |>
+  filter(gender_p.adj < 0.05, abs(gender_d) > 0.2)
+```
+
+## See also
+
+* [Plotting and exporting](visualization.html) for a volcano plot of these
+  results.
+* [PCA and clustering](statistical-analysis.html) for unsupervised analyses.

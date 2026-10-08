@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>PCA and clustering</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">PCA and clustering</h1>
+
+
+
+<p>tidymatrix wraps the standard R functions for principal component
+analysis (<code>prcomp()</code>), hierarchical clustering
+(<code>hclust()</code>) and k-means (<code>kmeans()</code>). Each
+analysis runs along the active dimension and does two things:</p>
+<ol style="list-style-type: decimal">
+<li>it adds its per-row or per-column results (PC scores, cluster
+labels) to the active metadata, where they can be filtered, grouped and
+plotted like any other variable, and</li>
+<li>it stores the full result object, which you can retrieve with
+<code>get_analysis()</code>.</li>
+</ol>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(tidymatrix)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(dplyr, <span class="at">warn.conflicts =</span> <span class="cn">FALSE</span>)</span></code></pre></div>
+<div id="data" class="section level2">
+<h2>Data</h2>
+<p>We use the <code>big5</code> personality survey (see
+<code>?big5</code>), with careless respondents removed and reverse-keyed
+items re-scored so that a high value always means a high trait level.
+The <a href="matrix-operations.html">Matrix operations</a> vignette
+explains these steps.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> <span class="fu">tidymatrix</span>(big5_responses, big5_respondents, big5_items) <span class="sc">|&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="fu">filter</span>(completion_min <span class="sc">&gt;</span> <span class="fl">3.5</span>) <span class="sc">|&gt;</span></span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>  <span class="fu">transform_matrix</span>(\(x, flip) <span class="fu">ifelse</span>(flip, <span class="dv">6</span><span class="dt">L</span> <span class="sc">-</span> x, x), <span class="at">flip =</span> reversed)</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>tm</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co">#&gt; # A tidymatrix: 388 x 30 matrix</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a><span class="co">#&gt; # Active: rows</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; # Row data: 388 rows x 8 columns</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; # Column data: 30 rows x 5 columns</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; # Active data (rows):</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt;   respondent_id age gender education     occupation country life_satisfaction</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; 1          R001  52 Female Secondary Service/Manual      EE                 8</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt; 2          R002  32 Female    Master         Office      FI                 4</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt; 3          R003  66   Male  Bachelor         Office      EE                 6</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt; 4          R004  42   Male  Bachelor   Professional      EE                 9</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt; 5          R005  48 Female Secondary         Office      FI                 8</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co">#&gt; 6          R006  62 Female     Basic Service/Manual      EE                 4</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co">#&gt;   completion_min</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="co">#&gt; 1           19.8</span></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a><span class="co">#&gt; 2            6.2</span></span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a><span class="co">#&gt; 3            6.3</span></span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a><span class="co">#&gt; 4            9.7</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="co">#&gt; 5           14.2</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="co">#&gt; 6           11.6</span></span></code></pre></div>
+</div>
+<div id="pca" class="section level2">
+<h2>PCA</h2>
+<div id="which-way" class="section level3">
+<h3>Which way?</h3>
+<p>The active component decides what the observations are:</p>
+<ul>
+<li><code>activate(rows)</code>: respondents are the observations and
+items the variables. Each respondent gets PC scores; the loadings
+describe the items.</li>
+<li><code>activate(columns)</code>: items are the observations and
+respondents the variables. Each item gets coordinates in PC space.</li>
+</ul>
+</div>
+<div id="pca-on-respondents" class="section level3">
+<h3>PCA on respondents</h3>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="fu">compute_prcomp</span>(<span class="at">n_components =</span> <span class="dv">5</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a>  <span class="fu">select</span>(respondent_id, row_pca_PC1<span class="sc">:</span>row_pca_PC5)</span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; # A tidymatrix: 388 x 30 matrix</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; # Active: rows</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; # Row data: 388 rows x 6 columns</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt; # Column data: 30 rows x 5 columns</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; # Active data (rows):</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt;      respondent_id row_pca_PC1 row_pca_PC2 row_pca_PC3 row_pca_PC4 row_pca_PC5</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; R001          R001   2.0329689  -0.2312498  -2.1412583   0.1924756  2.00705455</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; R002          R002   2.5004478   2.6842796   2.3221050  -1.1672864 -1.04262340</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; R003          R003   2.1131131  -3.1613248  -0.8710424   0.2558892  0.60512373</span></span>
+<span id="cb3-19"><a href="#cb3-19" tabindex="-1"></a><span class="co">#&gt; R004          R004   2.1817306   1.9286341   1.3764986  -1.3258180 -0.68187279</span></span>
+<span id="cb3-20"><a href="#cb3-20" tabindex="-1"></a><span class="co">#&gt; R005          R005  -0.7987357  -3.8207033   4.7528449   0.1305124  1.06946424</span></span>
+<span id="cb3-21"><a href="#cb3-21" tabindex="-1"></a><span class="co">#&gt; R006          R006   5.1128660  -2.7926437   2.0634259   2.7473609 -0.09283606</span></span></code></pre></div>
+<p><code>n_components</code> limits how many score columns are added to
+the metadata; the stored <code>prcomp</code> object always has all of
+them. Arguments such as <code>center</code> and <code>scale.</code> are
+passed on to <code>prcomp()</code>.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>pca <span class="ot">&lt;-</span> <span class="fu">get_analysis</span>(tm, <span class="st">&quot;row_pca&quot;</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">summary</span>(pca)<span class="sc">$</span>importance[, <span class="dv">1</span><span class="sc">:</span><span class="dv">7</span>], <span class="dv">3</span>)</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt;                          PC1   PC2   PC3   PC4   PC5   PC6   PC7</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt; Standard deviation     2.626 2.208 2.065 1.899 1.771 1.034 1.004</span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; Proportion of Variance 0.173 0.122 0.107 0.090 0.079 0.027 0.025</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; Cumulative Proportion  0.173 0.295 0.402 0.492 0.571 0.597 0.623</span></span></code></pre></div>
+<p>Five components stand out, one for each trait. The loadings are the
+<code>rotation</code> element of the <code>prcomp</code> object, with
+one row per item. Adding them to the item metadata makes them easy to
+inspect:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>    <span class="at">loading_PC1 =</span> pca<span class="sc">$</span>rotation[item_id, <span class="st">&quot;PC1&quot;</span>],</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>    <span class="at">loading_PC2 =</span> pca<span class="sc">$</span>rotation[item_id, <span class="st">&quot;PC2&quot;</span>]</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>  )</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a>  <span class="fu">group_by</span>(trait) <span class="sc">|&gt;</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(<span class="fu">c</span>(loading_PC1, loading_PC2), mean))</span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; # A tibble: 5 × 3</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt;   trait             loading_PC1 loading_PC2</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;                   &lt;dbl&gt;       &lt;dbl&gt;</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt; 1 Agreeableness         -0.105      -0.0459</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; 2 Conscientiousness     -0.252      -0.0559</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt; 3 Extraversion          -0.0623      0.179 </span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; 4 Neuroticism            0.274       0.100 </span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; 5 Openness              -0.103       0.341</span></span></code></pre></div>
+<p>As usual for PCA, each component mixes several traits. The PC scores
+can be related to anything in the respondent metadata:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="fu">across</span>(</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>    row_pca_PC1<span class="sc">:</span>row_pca_PC3,</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>    \(pc) <span class="fu">cor</span>(pc, life_satisfaction)</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>  ))</span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; # A tibble: 1 × 3</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt;   row_pca_PC1 row_pca_PC2 row_pca_PC3</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt;         &lt;dbl&gt;       &lt;dbl&gt;       &lt;dbl&gt;</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; 1      -0.609     -0.0222      -0.179</span></span></code></pre></div>
+</div>
+<div id="pca-on-items" class="section level3">
+<h3>PCA on items</h3>
+<p>With columns active, the items are placed in the space spanned by the
+respondents. Items of the same trait end up close to each other:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>  <span class="fu">compute_prcomp</span>(<span class="at">n_components =</span> <span class="dv">2</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>  <span class="fu">group_by</span>(trait) <span class="sc">|&gt;</span></span>
+<span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb7-10"><a href="#cb7-10" tabindex="-1"></a>    <span class="at">PC1 =</span> <span class="fu">mean</span>(column_pca_PC1),</span>
+<span id="cb7-11"><a href="#cb7-11" tabindex="-1"></a>    <span class="at">PC2 =</span> <span class="fu">mean</span>(column_pca_PC2)</span>
+<span id="cb7-12"><a href="#cb7-12" tabindex="-1"></a>  )</span>
+<span id="cb7-13"><a href="#cb7-13" tabindex="-1"></a><span class="co">#&gt; # A tibble: 5 × 3</span></span>
+<span id="cb7-14"><a href="#cb7-14" tabindex="-1"></a><span class="co">#&gt;   trait                PC1   PC2</span></span>
+<span id="cb7-15"><a href="#cb7-15" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;              &lt;dbl&gt; &lt;dbl&gt;</span></span>
+<span id="cb7-16"><a href="#cb7-16" tabindex="-1"></a><span class="co">#&gt; 1 Agreeableness      -1.16 12.6 </span></span>
+<span id="cb7-17"><a href="#cb7-17" tabindex="-1"></a><span class="co">#&gt; 2 Conscientiousness -12.6  -1.85</span></span>
+<span id="cb7-18"><a href="#cb7-18" tabindex="-1"></a><span class="co">#&gt; 3 Extraversion       -1.34 -6.61</span></span>
+<span id="cb7-19"><a href="#cb7-19" tabindex="-1"></a><span class="co">#&gt; 4 Neuroticism        16.3  -2.65</span></span>
+<span id="cb7-20"><a href="#cb7-20" tabindex="-1"></a><span class="co">#&gt; 5 Openness           -1.28 -1.49</span></span></code></pre></div>
+<p>The <a href="visualization.html">Plotting and exporting</a> vignette
+plots this.</p>
+</div>
+</div>
+<div id="hierarchical-clustering" class="section level2">
+<h2>Hierarchical clustering</h2>
+<p><code>compute_hclust()</code> computes a distance matrix with
+<code>dist()</code>, clusters it with <code>hclust()</code> and, if
+<code>k</code> or <code>h</code> is given, cuts the tree and stores the
+cluster labels in <code>{name}_cluster</code>.</p>
+<div id="clustering-items" class="section level3">
+<h3>Clustering items</h3>
+<p>Do the answers alone reveal which items belong together?</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="fu">compute_hclust</span>(<span class="at">k =</span> <span class="dv">5</span>, <span class="at">method =</span> <span class="st">&quot;ward.D2&quot;</span>, <span class="at">name =</span> <span class="st">&quot;item_clusters&quot;</span>)</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a>  <span class="fu">count</span>(trait, item_clusters_cluster)</span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt; # A tibble: 5 × 3</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt;   trait             item_clusters_cluster     n</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt;   &lt;chr&gt;             &lt;fct&gt;                 &lt;int&gt;</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt; 1 Agreeableness     2                         6</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#&gt; 2 Conscientiousness 3                         6</span></span>
+<span id="cb8-14"><a href="#cb8-14" tabindex="-1"></a><span class="co">#&gt; 3 Extraversion      1                         6</span></span>
+<span id="cb8-15"><a href="#cb8-15" tabindex="-1"></a><span class="co">#&gt; 4 Neuroticism       4                         6</span></span>
+<span id="cb8-16"><a href="#cb8-16" tabindex="-1"></a><span class="co">#&gt; 5 Openness          5                         6</span></span></code></pre></div>
+<p>Each cluster corresponds to exactly one trait. The dendrogram is the
+stored <code>hclust</code> object:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>hc <span class="ot">&lt;-</span> <span class="fu">get_analysis</span>(tm, <span class="st">&quot;item_clusters&quot;</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a><span class="fu">plot</span>(hc, <span class="at">main =</span> <span class="st">&quot;Items&quot;</span>, <span class="at">xlab =</span> <span class="st">&quot;&quot;</span>, <span class="at">sub =</span> <span class="st">&quot;&quot;</span>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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YAggEFeB888/33bffXd/++abb9JexuzZs+3bb79NW8YDBBBAAIHcAgSguW14BgEEEEgKvPnmm/bss8/627Jly/zy77//3s477zzbdNNNbdGiRcl1uYMAAgggkF+gcf6neRYBBBBAIJfA5ZdfbhdffHGup1mOAAIIIJBDgBrQHDAsRgABBEohkEgkbM6cOfbDDz+E3t2PP/5on376aZX1lyxZYl9++WWV5akL1BXg/fffty+++MJWrFiR+hT3EUAAgbIRIAAtm7eCE0EAgTgJHHLIIWm1n126dLF11lkn+RJ+/vlnO/30061Fixa2wQYb2GqrrWZbbbWVvfjii8l1dOfRRx+15s2b+9tbb71lBx54oN+mbdu21qFDB3v11Vd9MKr+p61atbI2bdrYZpttZuoSkFruuece69ixo7Vs2dI23nhjW3vttW3ddde1q6++OnU17iOAAAJlIUATfFm8DZwEAgjETeCnn36y5cuXJ09btZZNmjRJPt53331t8uTJ/rGCT/UXnTlzpu266642YcIE22uvvfxzv/76q39OD/bee29buHChrbXWWv5/DW76wx/+YKussooPQldffXU/2Omdd96xffbZxz744ANbeeWV/XH69etnqm3VthtttJG9/fbbfh+nnXaabbHFFtazZ09/PP5BAAEEykGAGtByeBc4BwQQiJ3AzTffbKecckryvJ955hl74403/OP77rsvGXwqAPzss8/sww8/NNWS/vLLLzZs2LDkdql3GjRo4JvrP//8czvhhBP8U19//bWpNvWjjz4yLf+///s/v3z+/Pn28ccf+/s6noJP1XgqgP33v//t191tt92sV69epoCVggACCJSTAAFoOb0bnAsCCMRGQMFe69atk+fbvn1732SuBQ8++KBf3qhRIzvnnHNs1VVX9c8dffTRfvlrr71m7777rr+f+o+a7Ndbbz2/SMFjUI477ji/fbNmzWy//fYLFvtgVQ/UzK+ifqNdu3a1iy66yKZPn26TJk3yta0nnXSSf55/EEAAgXIRIAAtl3eC80AAgYoRUG2nSsOGDX3T9+abb266jRkzJvka//vf/ybvB3fatWsX3PVN68GDICjVYwWzQVHNqIoCVDW9qyi4HT58uHXv3t33F1UtLSmiPA3/IIBAGQnQB7SM3gxOBQEEKkNA/UFVVAOqAUZB0X0NIlJR38/M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bdu2DR7yPwIIIIAAAggggECZCMSuCb5fv36mIHThwoV2+OGH+z6eGoDUsGFDPxJ+zpw5duedd9qECRNMzfQUBBBAAAEEEEAAgfISiF0AutVWW9msWbNs8ODBNnDgQFuxYkUV0T333NMmTpxoPXr0qPJcoQUa5DR9+vRCq9lXX31l3377bcH1WAEBBAoLqMvMM888Y40bx+4rqfCLq4A1vvnmG9t9992tUaNGFfBqKu8lKB3hW2+9ZauvvnrlvTheUcUKxPLbvlOnTn6E+7Jly2zevHmmWs/ly5fbuuuua+3atfMpmYp9xz755BO7++67C26uAHTJkiUF12MFBBAoLKDWiieffNKnUiu8NmsggECqwG677Waff/45AWgqCvfLXiCWAWigqhygCkZ1U/niiy/yDk4Ktsv3f8+ePU23QmWnnXay9dZbr9BqPI8AAiEEVlllFWvWrJmtv/76IdZmFQQQSBXQwFsKAnETiN0gJAG/8sortt9++9l3333nvR977DGfmmnttde2li1b2rbbbmsvvPBC3N4LzhcBBBBAAAEEEKgXArELQF9++WXbcccd7ddff/Vv0EsvvWQHHXSQb3ZXjtDRo0db8+bNbe+99yYIrRcfYV4kAggggAACCMRNIHZN8OqfqdrPRx991FvfdNNN9rvf/c4UmAYDGE455RTTQKTbbrvNdtlll7i9J5wvAggggAACCCBQ0QKxqwHVCPVevXol3xSNzuzTp08y+AyeULomJa2nIIAAAggggAACCJSXQOwC0C5dutj9999vP/30k5fU6D/VhgZN8lqolBQaUbvJJpuUlzZngwACCCCAAAIIIGCxa4IfOnSoH2S0ww472LBhw3xS+o033tjn/DzyyCNttdVW84non3766VAzJvEZQAABBBBAAAEEEIhWIHYBqNK0PP/88/b3v//d+vfvn1bzGUzRufXWW/taUY2GpyCAAAIIIIAAAgiUl0DsAlDxbbrppnbXXXfZNddcY7Nnz7YFCxb4WYmUiF65OTt37lxeypwNAggggAACCCCAQFIglgFocPaaA1637bbbLljE/wgggAACCCCAAAJlLhC7QUhl7snpIYAAAggggAACCBQQIAAtAMTTCCCAAAIIIIAAAqUVIAAtrSd7QwABBBBAAAEEECggQABaAIinEUAAAQQQQAABBEorQABaWk/2hgACCCCAAAIIIFBAgAC0ABBPI4AAAggggAACCJRWINZpmEpLwd4QQAABBCpZ4Nxzz7UXX3zRGjRoUFEvc8mSJaaZAJs1a1ZRr0uv55577vEzHFbUC+PFeAECUD4ICCCAAAL1QmDEiBH25JNPWpMmTerF6437izz11FPt7bffth133DHuL4XzzyJAAJoFhUUIIIAAApUnsOaaa5qmaF5rrbUq78VV4Ctq3rx5Bb4qXlIgQB/QQIL/EUAAAQQQQAABBCIRIACNhJmDIIAAAggggAACCAQCBKCBBP8jgAACCCCAAAIIRCJAH9BImDkIArUjMGnSJHvllVdqZ+cR7nXx4sU2duxYUx+9OJfWrVvb4MGD4/wSOHcEEEAgEgEC0EiYOQgCpRf47rvvbK+99rJhw4aVfucR7/Hoo4+2Ro0a2dKlSyM+cmkPpzQ/LVq0sMMOO6y0O2ZvCCCAQIUJEIBW2BvKy6k/AolEwufHU2oZSnkIzJ0713799dfyOBnOAgEEEChjAfqAlvGbw6khgAACCCCAAAKVKEAAWonvKq8JAQQQQAABBBAoYwEC0DJ+czg1BBBAAAEEEECgEgUIQCvxXeU1IYAAAggggAACZSxAAFrGbw6nhgACCCCAAAIIVKIAAWglvqu8JgQQQAABBBBAoIwFCEDL+M3h1BBAAAEEEEAAgUoUIACtxHeV14QAAggggAACCJSxAAFoGb85nBoCCCCAAAIIIFCJAgSglfiu8poQQAABBBBAAIEyFoh9AKrpCBctWmSLFy8uY2ZODQEEEEAAAQQQQCAQiGUAumDBAhs6dKi1b9/emjZtam3atLHWrVtbixYtbMstt7QzzjjDli5dGrxG/kcAAQQQQAABBBAoI4HGZXQuoU5l7ty51r17d2vQoIH17dvXOnToYK1atfKPVQs6e/ZsGz9+vD3wwAM2efJk69ixY6j9shICCCCAAAIIIIBANAKxC0BHjRrlaz4nTZpkK620UlalESNGWO/evW3cuHF24YUXZl2HhQgggAACCCCAAAJ1IxC7JvgZM2bYgAEDcgafYmzSpIkNGjTInnrqqbpR5agIIIAAAggggAACOQViF4B269bNpk2blvMFBU9MmTLF2rZtGzzkfwQQQAABBBBAAIEyEYhdE3y/fv1MQejChQvt8MMP9308NQCpYcOGfiT8nDlz7M4777QJEyaYmukpCCCAAAIIIIAAAuUlELsAdKuttrJZs2bZ4MGDbeDAgbZixYoqonvuuadNnDjRevToUeW5Qgs+//xze/fddwutZt9++619//33BddjBQQQQAABBBBAAIF0gdgFoDr9Tp06+RHuy5Yts3nz5plqPZcvX27rrruutWvXzqdkSn+Z4R+pj+nIkSMLbqBUUMo/SkEAAQQQQAABBBConkAsA9DgJSoHqIJR3X744Qdfc6lUTC1btrRGjRoFq1Xr/169epluhcpOO+3kR+MXWo/nEUAAAQQQQAABBNIFYjcI6YorrrC//vWvaa/ikksu8blAt9tuO9too42sc+fOvgk+bSUeIIAAAggggAACCJSFQOxqQNX/M7Xp+5///Kedc845tscee5gGKC1ZssTuvvtuO/DAA+0///mPqc8oBQEEEEAAAQQQQKB8BGIXgGbS3XzzzbbjjjumjXg/7bTTbJtttrExY8bYbbfdlrkJjxFAAAEEEEAAAQTqUCB2TfCZVt988431798/c7Ede+yxNnPmzCrLWYAAAggggAACCCBQtwKxDEB//PFHP+pddH369DGNSM8sr732mq255pqZi3mMAAIIIIAAAgggUMcCsQtAGzRoYFOnTrXVVlvNtt9+e1OgefXVV9sbb7zhKefPn28nnHCC/etf/7I//elPdczL4RFAAAEEEEAAAQQyBWIXgN50000+2Bw7dqwpFdLPP/9sjRs3to8//ti/tieeeML0nJrgjz766MzXy2MEEEAAAQQQQACBOhaI3SAk5f7UyHbdBg0alOT75Zdf/P3999/f9t13X5+QPvkkdxBAAAEEEEAAAQTKRiB2AWguOdWCqmg2JAoCCCCAAAIIIIBA+QrErgm+fCk5MwQQQAABBBBAAIEwAgSgYZRYBwEEEEAAAQQQQKBkAgSgJaNkRwgggAACCCCAAAJhBAhAwyixDgIIIIAAAggggEDJBAhAS0bJjhBAAAEEEEAAAQTCCBCAhlFiHQQQQAABBBBAAIGSCRCAloySHSGAAAIIIIAAAgiEESAADaPEOggggAACCCCAAAIlEyAALRklO0IAAQQQQAABBBAII0AAGkaJdRBAAAEEEEAAAQRKJkAAWjJKdoQAAggggAACCCAQRoAANIwS6yCAAAIIIIAAAgiUTIAAtGSU7AgBBBBAAAEEEEAgjAABaBgl1kEAAQQQQAABBBAomQABaMko2RECCCCAAAIIIIBAGAEC0DBKrIMAAggggAACCCBQMgEC0JJRsiMEEEAAAQQQQACBMAIEoGGUWAcBBBBAAAEEEECgZAIEoCWjZEcIIIAAAggggAACYQQIQMMosQ4CCCCAAAIIIIBAyQQIQEtGyY4QQAABBBBAAAEEwggQgIZRYh0EEEAAAQQQQACBkgkUDEB//PFH++yzz7IeUM8999xzWZ9jIQIIIIAAAggggAAC2QQKBqBTpkyx/fffP9u2Nn36dNttt91s8eLFWZ9nIQIIIIAAAggggAACmQKNMxfo8U8//WQDBgywpUuX2qJFi+yjjz6yffbZJ23VRCJh7733nq2++uq2xhprpD3HAwQQQAABBBBAAAEEcglkrQFt1qyZ9erVy5o2bWqNGze2Bg0a+Pt6HNy0Tvfu3e2BBx7wz+c6QG0vVyCsIJla2NqWZv8IIIAAAggggEBpBLLWgGrXRx11lL+98sordscdd9jVV19dmiOWYC8LFizw53Pvvfea7v/yyy9+r6qNbd++ve2555524YUXWvPmzUtwNHaBAAIIIIAAAgggUEqBnAFocJDtt9/edCuXMnfuXF/zqlrZvn37WocOHaxVq1a+Fla1oLNnz7bx48f7mtnJkydbx44dy+XUOQ8EEEAAAQQQQAABJ1AwAJXSa6+9Ztdff729//77vl9optyMGTMyF9Xa41GjRvlazkmTJtlKK62U9TgjRoyw3r1727hx43xNaNaVWIgAAggggAACCCBQJwIFA1A1ce++++7+5NS0vfnmm9fJiQYHVbA7cODAnMGn1mvSpIkNGjTIrrnmGgLQAI7/EUAAAQQQQACBMhEoGIBOnTrVfv75Z/v00099U3ddn3e3bt1s2rRpduyxx+Y9FaWPatu2bd51eBIBBBBAAAEEEEAgeoGCAaiSzW+66aZlEXyKp1+/fqYgdOHChXb44Yf7Pp6tW7e2hg0b+pHwc+bMsTvvvNMmTJhgaqanIIAAAggggAACCJSXQMEAdI899rAhQ4b4nJ8bb7xxnZ/9VlttZbNmzbLBgwf7pvgVK1ZUOSd1FZg4caL16NGjynOFFnz99dc2b968QqvZ999/7/OlFlyRFRBAAAEEEEAAAQTSBLIGoK+++qo9++yzyRW33npr23nnne3ggw+2DTbYwOcGTT7p7px99tmpD2v9fqdOnUwj3JctW+aDRdV6Ll++3NZdd11r166dqUa02PL888/b8OHDC27+8ccf2/z58wuuxwoIIIAAAggggAAC6QJZA9CXXnrJLr744vQ13aP77ruvyjItiDoADU5CSfEVjOqmolpJpWKqSQDap08f061Q2WmnnZLHLbQuzyOAAAIIIIAAAgj8JpB1JqRTTjnFvv3229C333ZXt/cefPBBU20tBQEEEEAAAQQQQKB8BbLWgJbv6Zpdfvnlpib3bEV5SlULevLJJ/unt9lmGz+bU7Z1WYYAAggggAACCCBQNwIFA1D1iTzxxBOznp1mI1p55ZVtrbXWsn333Tfnelk3LnKhkuLfc889tsYaa1RJs/TNN9/4vqDPPfec33uuRPVFHprNEEAAAQQQQAABBEogkLUJPnW/yqXZpk0be/vtt/2gHyWl1y2RSPhlG264oTVq1MjUbH/66aenblor95ViSTMdadDRgAEDbObMmfbmm2/6m5a3bNky+fiKK66olXNgpwgggAACCCCAAALFCxSsAVVw+fLLL9v9999vf/zjH5NHUvojBaIK+BQUPv3007bPPvvYBRdcYC1atEiuV+o7yvc5bNgw23vvvX0e0Mcff9xPubn++uuX+lDsDwEEEEAAAQQQQKAWBArWgCqZe/v27dOCT52HAkHVeI4fP96f1h/+8AffFP/KK6/UwmlW3eW2225rr7/+um222WbWpUsXu/3226uuxBIEEEAAAQQQQACBshMoWAOq/p1KzK4E7ep3mVreeOMN3wdUy3799VefmD1zndT1S31/lVVWseuvv973Pz3qqKOS51Lq47A/BBBAAAEEEEAAgdIJFKwB1UxIam4/4ogj7JFHHrGlS5fad999Zw899JBdc801Pmem+mOef/751qRJE9PI86iLBkCpH6hyc2qmJAoCCCCAAAIIIIBA+QoUrAFt3ry5vfDCC3bQQQfZgQce6Jveg+kv+/btayNHjrQZM2bYpZdealdeeaV/vi5ergZK3X333XVxaI6JAAIIIIAAAgggUA2BggGo9qVazffee8/U5K5gs1mzZrb99tvb5ptv7g+lOeK/+uorPyCpGsdmVQQQQAABBBBAAIF6KBAqAJWL8n1269bN3zKdVltttcxFPEYAAQQQQAABBBBAIKtA1gBUI9mnTJlixx57rCm5u1Iw5St/+ctf8j3NcwgggAACCCCAAAIIJAVyBqCXXXaZ7/epaS91P18hAM2nw3MIIIAAAggggAACqQJZA1DNpR7Mp965c2efgkkbaZ71jz76yDp27OhHvDPVZSol9xFAAAEEEEAAAQTCCBRMw6SdzJ8/3yei14h4pTl65513bOjQoXbmmWfaDz/8EOY4rIMAAggggAACCCCAgBcoGIAuW7bMDjjgAPvggw9s9OjRpuTvKrvssovdcsstdtppp/nH/IMAAggggAACCCCAQBiBrE3wqRtqKs4FCxb4AFRzvA8fPtw/fcghh9jqq69uAwcOtEQiYQ0aNEjdjPsIIIAAAggggAACCGQVKFgD+uGHH/r51hV8ZpauXbvaZ599ZhqoREEAAQQQQAABBBBAIIxAwQB0gw02sGnTptmiRYuq7O+ee+6xxo0bW9u2bas8xwIEEEAAAQQQQAABBLIJFGyC33333a1du3a2zz772JAhQ/y88KoVfeyxx2zs2LHWr18/a9q0abZ9swwBBBBAAAEEEEAAgSoCBQNQjXx/6KGHbNCgQT7Y1B769+/vd6S54a+66qoqO2UBAggggAACCCCAAAK5BAoGoNqwS5cuNn36dHvttddMtZ+q8dxss81sk002ybVfliOAAAIIIIAAAgggkFUgVACqLRs2bGgadKQbBQEEEEAAAQQQQACBYgWyBqDz5s3zaZfC7nTPPfcMuyrrIYAAAggggAACCNRzgawB6P333+9nOQprozygFAQQQAABBBBAAAEEwghkDUAPPfRQ22677dK214xHGg2v6TcpCCCAAAIIIIAAAggUK5A1AFWgqVtqadmypa2zzjrWo0eP1MXcRwABBBBAAAEEEECgWgIFE9FXa2+sjAACCCCAAAIIIIBAAQEC0AJAPI0AAggggAACCCBQWgEC0NJ6sjcEEEAAAQQQQACBAgIEoAWAeBoBBBBAAAEEEECgtAJZByHdcccdNmbMmLQjffDBB/bWW2/Z66+/nrZcDzRLEgUBBBBAAAEEEEAAgTACWQPQlVde2dZaa6207TMfpz3JAwQQQAABBBBAAAEEQgpkDUAPOeQQ042CAAIIIIAAAggUEnj11VftH//4hzVo0KDQqqGf//TTT+3yyy+vUiEWegdZVmzfvr2dccYZ1rhx1vAnyxYsqi2B2L8DmoXpyy+/tEaNGlmrVq1qy4n9IoAAAggggEAOgSOOOMIGDhxoyhleqtKlS5dS7Sq5nxEjRlivXr1syy23TC7jTt0IxDIAXbBggV199dV27733mu7/8ssvXm/11Vc3Xd1obvoLL7zQmjdvXjeqHBUBBBBAoKDAN998YyeeeGJktVErVqywk08+2VZaaaWC51bTFX744Qc777zzbKuttqrprmKxvSaq2XHHHa1nz55lfb5jx44t6/OrTycXuwB07ty51r17d1/N37dvX+vQoYOv+VS1/+LFi2327Nk2fvx4e+CBB2zy5MnWsWPH+vR+8loRQACB2AiMHj3aWrRoYTvttFMk56zKiajKokWLfEXIQw89FNUhOQ4CsRKIXQA6atQoX8s5adKknFexqmLv3bu3jRs3zn8BxOod4WQRQACBeiTwu9/9zgYMGFBxr/j++++PrGa34vB4QfVCIHZ5QGfMmOG/rPI1oTRp0sQGDRpkTz31VL14E3mRCCCAAAIIIIBAnARiF4B269bNpk2bVtB4ypQp1rZt24LrsQICCCCAAAIIIIBAtAKxa4Lv16+fKQhduHChHX744b6PZ+vWra1hw4a+D+icOXPszjvvtAkTJpia6SkIIIAAAggggAAC5SUQuwBUIwpnzZplgwcP9ikfNKoxs6ij+cSJE61Hjx6ZTxV8/P333/tAttCKP//8sy1fvrzQajyPAAIIIIAAAgggkCEQuwBU59+pUyc/wn3ZsmU2b948U62ngsF1113X2rVrZ6oRLbao5lRJagsV1cB+8skntssuuxRalecRQAABBBBAAAEEUgRiGYAG59+0aVMfjCogVfn111/t888/D54u6n+ldtKtUFHakM6dOxdajecRQKBMBZYuXWo33XRTSc/u3Xff9fvTBWqpiqZBVpJvCgIIIFBJArEMQBVkKsWF8n4eeuihtvHGG9vw4cPt+uuv97MiKSHuDTfcYH369Kmk94rXggACJRQ46aSTfMuJ0gCVqgQ5iufPn1+qXfoWGeXKPOCAA0q2T3aEAAII1LVA7AJQBZ8777yzb3pXDehVV11ll112mY0cOdLPX9+1a1e74447/P2XXnrJtttuu7o25vgIIFCGAkrXpi40xxxzTBme3W+npMk36G/+mwf3EECgMgRiF4BeccUVpik39aWsXKB//vOf7bjjjrPzzz8/mXT+1FNP9TNrKGm9puuMS1He0q+++qro09UsUKoVVhaAmpQddtjBd22oyT7YFgEEEEAAAQQQyCUQuwD0lVde8UnmNeBI5ZxzzrG77rrLN8WnvsiBAwf6JvnUZeV8f+rUqX72JqWZKraoD6yyBGggVbFFAXD//v0tkUgUuwu2QwABBBBAAAEE8grELgDdcsstbebMmckXtdlmm5lqOtVHKrW88cYb1qZNm9RFZX1fAyL23XffGtde1vRFavBEly5darqber39c889Z/vtt581b968Vh10kaCLDvV5ru2iri9vvfWW6e+NggACCCCAQE0FYheAatBRz549fQ3dRRddZOutt56deeaZSQd1/lef0Ntuu80PREo+wR0EIhJ44oknbOjQoXb00UdHdMTaP8wFF1xgml2MALT2rTkCAgggUB8EYheAagDSfffdZ+eee659+OGHPgBNfaPU//G6666zIUOG2JFHHpn6FPcRiExAA+SiqJmM6gXp9VAQQAABBBAolUDsAlC98AMPPND2339/3/yYCaH+i+r/WcrUKpnH4DECCCCAAAIIIIBA8QKxDED1chs1auRvmS+9bdu2mYt4jAACCCCAAAIIIFBGAg3L6Fw4FQQQQAABBBBAAIF6IBDbGtB68N7wEhFAAAEEaknggw8+8DPoqTWtNsqCBQvs008/9WntamP/yoKhmbdOOOGE2tg9+0Sg1gUIQGudmAMggAACCJSbgDI7bL755rb++uuX26mFOp9ffvnFz+JFABqKi5XKUIAAtAzfFE4JAQQQQKB2BVZZZRVbe+21a62GsnbP3mzJkiV+JsDaPg77R6C2BOgDWluy7BcBBBBAAAEEEEAgqwA1oFlZWIgAAgggUNsCO+20kzVsSD1IbTuzfwTKUYAAtBzfFc4JAQQQqAcCvXr1qgevkpeIAALZBLj0zKbCMgQQQAABBBBAAIFaE6AGtNZo2TECdS+gNDCanEEDLmpSNOK2QYMG9pe//KUmu7EVK1bY4sWLbeWVV67RfuK08a+//mqXXXaZffzxx0Wd9ltvvWU33nijTZgwodrbL1u2zI499ljbddddq70tGyCAAAK1KUAAWpu67BuBOhaYPXu2bbPNNvb888/X8Zn8/8P//ve/t6VLl9arAPS///2vnXvuuXbLLbcU9R5069atqO200bfffmtDhgyx6dOnF70PNkSg3ATGjRtn8+bNK+q0Fi5caDfddJOts846RW1/yimnWIsWLYralo3SBQhA0z14hEDFCTRr1sxWXXXVsnhd9XXAiXJNHn300ZG/B9OmTbMHHngg8uNywJoLjBkzxiZNmuRbHrLtTa0STZo0sf333z/b037Z999/7xPV9+3bN+c6cXvi2WeftYEDB/qLumLO/aijjvID33766adqb37HHXfYa6+9Zg899FC1t2WDqgIEoFVNWIIAAkUIqGbz/fffz7ulfjRnzpxpa6yxRs71FKytueaaOZ/nCQTqg8Dpp59u9913n+kCMlc58cQTcz3ll6sGfNSoUVZJAai68ey+++7297//Pe9rr40nN9poI39RUBv7ro/7JACtj+86rxmBWhD405/+ZJ988kne2lYFlmeddVbO1Dv6wfzss89MNTcUBOqzwHrrrWc77LCDqdtKsUU14KolrWn58ccf7fLLL8+7mzlz5piaxv/973/nXK9r165G5oOcPPXuCQLQeveW84JrIvD555/bHnvsYS1btsy5G/Ux0vzSjzzySM51li9fbk8++aS1bt065zpxe0I/UjfccIP17Nmz6FOXXZcuXYreng0RQKD0AqeddprpO0sDGnOVww8/3D+lgW+5Su/evW3RokW0cOQCqmfLCUDr2RvOy62ZwMSJE/0ORo4cWaMdDRs2zF5++WXbZ599arQfNkYAAQRqW6Bp06a2+eabmwbg1KSMHTvWEolETXZRsm3VyqIa2+qUl156yXcz0oV2dYoqLdR8T0kXIABN9+ARAgUFtt12W9t5550LrpdvhebNm+d7mucQQAABBGpR4M9//rN9/fXXtvbaa4c+ShCIz5o1K/Q2yoKhvrrlEniHPvEIViQAjQA5zCFWW221GvX1CXMM1kEAgfgK/Pzzz6aBKY0bh//aVpeR+fPnm35sq1N23HFH69evX3U2qdN1Dz30UD84pDo2GgWtDAFKkRW2fPHFF3bbbbf5Udhht2G98hRQXmO1QB1zzDG1eoLqG6tcvpSqAuG/yapuy5ISCvTo0cN0oyCAAALZBEaPHm1KA1Od0b+dOnWy7t27Z9td3mXqz6egTn2Z41BefPFFe+6552yttdaq1dN97LHHfKCrNEAUBBComQABaM382BoBBBCITEBNedWtzSzm5FTTGqeiVEVqHq1Oc2oxr0/HUM0ZBQEEai5AAFpzQ/aAAAJlJrBgwQLbc8898wYk6pulgWCqVcxVFHComVZdZCilFVDGAzVPtm/fPu/7VNqjsjcEECgXAQLQcnknSnQeGtmn2TOKLd98842pr1m+FEKF9q1+WPvuu2+h1XgegVoTuP/++30+0gsuuKBGx9Co37ffftvUJ5JSnECfPn3s5JNPtr322svvQGl4NCuUmrODst9++/n57tddd91gEf8jgECFCxCAVtgbrOa5Dz74wFq1alXUK9MsE1tvvbXdeuutRW2vjR599FG7/fbbbcCAAUXvgw0RqKmA+j7utttuNdpNuUxhWqMXUccbP/PMM3bggQcmz0L9J1944QU78sgj/YXqf/7zH7vnnnv8Olq+0korJdflDgIIVK4AAWiFvbca2Xn88cdbkBS4Ll7e2WefbRp9S0EAAQRSBdQ1QhMwXHHFFTZkyBD/1CGHHGKDBw+2jTfe2CZPnkxu3FQw7iNQwQIEoBX85vLSEEAAgXISUBcflf79+6edlpJ0q7Z65syZdRqAql/wd999l3ZuqQ8UQOs1vPPOO6mL0+43bNjQB9NpC3mAAAJVBAhAq5CwAAEEEECglAJLlizxu9tss82sY8eO9umnn1qbNm2Sh9D0jUrufdhhhyWXRX1n9uzZ1qFDB9tkk01yHlrTUf7yyy/2xz/+Mec67777ru+GtP/+++dchycQQMAs9gGoZhf48ssvfb66Yvs98kFAAAEEEKg9Ac0l/re//c00i1iTJk3suOOOs2nTpvn7zz77rGmwmLoP1eXgRc2Ko/7vr7/+eo0g1AVJQSgBaI0Y2bgeCMQyAFUzyNVXX2333nuv6b6uSFVWX311n9JD6VcuvPBCY7rD4j/B3377rW9qKmYP2lYJrOfOnVvM5ta6dWveu5ByqjXSoLNc5b333vMXaOPHj8+1il+uH0sGf+Ql4skiBVTbOWPGDH974403fP9wZRZQU7XKxRdf7J+78847rW3btkUehc0QqBuBAw44wH8H58oPq/hEv4n5atY/++wzGzlypL8wq5tXUTdHjV0AqqBGo1v1Zvft29c3majmU48XL15sakbRj61y96lDu5p7KNUXaNmyZdFTgyqNk96Pu+66q9oHVlOdakg05R0lv4BSbm255ZamQRy5ir781KyoUca5iv5WlHj8yiuvzLUKyxEoWkDfJerfqVtQ1JQdzLJ01VVX+YoDMg4EOvwfJwGlE3vzzTeTn+dizl3ba4pXtQzUpxK7AHTUqFH+y0q5LnPV2IwYMcJ69+5t48aN8zWh9ekNLdVrVe3EJ598UqM/qmLORcmpu3TpUsym9W6bX3/91SdIL1S7WQjmxhtvrHGzY6Fj8DwCqQK6yAyK+oXqolUXrBtuuKF17do1eIr/ESh7AV04tXeTKdSkxfXjjz9OtgiU/Qsu4Qn+/zaQEu6wtnelphzll8wVfOr4+nIbNGiQPfXUU7V9OuwfAQQQQKBIAV3kDh061NZbbz2fOk4zI1EQQKB+CMSuBrRbt26+8/qxxx6b9x2aMmUK/YnyCkXz5MSJE33/l7BHU4oTDUbQTDbVKeuvv75tv/321dmEdRGolwLqqqS+wfmKBncqQXzQTJ5t3c6dO/v+2tmey7dMNfdPPPGE3XDDDfb000/7VXfffXc76qijGLiTD47nEKgwgdgFoP369TMFoWqqVbJ19fHUoBU1GeuLVVfQ6sw+YcKEGk1JGeX7rNmHNJhK09Dl+8KP8pxKcSwFn3/4wx/ypizJPI5++HbaaSe77777Mp/K+1jN0HrvFYhSECgnAQ2OLKdZwXbZZRffgtSsWbOcTEoKr5rJXEX5Mps2bWpqOgxbNNDilltusZtvvtm0/corr2xrrbWWvfTSS7bBBhuE3Q3rIYBAhQjELgDdaqutfL44zZyhKd0UvGUWjYJX8NOjR4/Mpwo+1qAN1cAVKrqKz3bsfNtp33fccYdNnz7drr32WlNH/OHDh9uYMWPsxx9/9P35NF+yvqArIaWURv4pX151azPzGeZ6Toms1Y+MgkC5Cehv+aKLLiqb02rcuLH985//9APYij0ppRk6+OCDQ22u1ijVdj788MM+aNV26iKlIFSpmQg+QzGy0v8E1lxzTdtxxx3xqACB2AWgMu/UqZMf4a7kxfPmzfM1XwrmVIPYrl27opqFgvdSo4VPOOGE4GHO/3/44QffjKXa2LDlL3/5i2nAx7Bhw/wm5557rg8+lQJHqRw0u4Zq/lRD8eqrr9oqq6wSdteshwACCJSdgL6f99hjD9t11139KF99z6222mr+PDVIlJJb4IwzzjBlEKhJ+f3vf2+FuqvVZP91sa0yf+hGib9ALAPQgF2DjRSM6pZZVKOoomae6hRNEZc5TVy27dVMvOmmm2Z7KusyNS0rb+n1119vRxxxhOnx2LFj/RzI11xzTXIbJWxWjcDzzz9vvXr1Si7nDgLlLqBuMLly4YU9d20f5IcMuw3rla+ARgjr+1n9SVU+//xz33Xqd7/7XfmedJmc2amnnlrjM9HgLtU2UxAoR4HYjYIXoq6cFaSpD5MCQc2okVnUV1RN9OVS9MU7f/78ZFCp5mIFyZk5HNdZZx3bbbfdfGLmcjl3zgOBMALKu6vPbk2KpmdUX0FKZQiof74mSlDaPKWqOf/88/2I9/322880AxIlHgKbb765f/9qerbqYpYvg01N98/28RKIXQD6zDPP+MBSg03OOussW7RokW/eUZ/Kci4KLNV3JWh2UvCsfiwPPfRQ2mlrWlE1v+ebNSFtAx5EKrDDDjuUZEDJiSeeaMp/SEGg0gVUq63++Lfffru/uLjuuuv87Fy3ucTbuig/+uijberUqb5VqNIt4vr6NOaiFFOLKterBuVREJBA7Jrg1YdSI6uDHJ/qxK6BPKeccorvW1ROtZ6ZHzFNtaVUI5qGToNzVBugx5qDWI81Ev6KK67wI7n1GinlJ6DUM7rVtKgGiIJAfRNQ8KHZXnTT9+Ctt97qB2bqf/VXVB94XeRREKhtAWXQUYsLpe4EYheAairO1CBTV9caYapR6epsrbmENQq+HMuRRx7pg2TN1KRRqEH517/+ZbopBdOhhx5ql156qe9eEDzP/wgggEClCagFQBfc+r57/PHHfTCqeeMpCEQhEAwGjuJYHCO7QOwCUI10V1qPk08+Oe0VXXzxxT6th2oSNYCnXIvOTzfNWa/mJ9V6KojW6H111l977bXL9dQ5LwQQqEMBTVGr7BuVVjSY9KCDDvK3Yl/bP/7xD/8dWuz2bIcAAtELxC4A1eAijVJXbaf60W299dZJNTXjKLhTfyN1ft9mm22Sz9X1HQ06evnll6uchgJqFdXgvv/++/6mxxphrz6jFAQQQEAC++yzDxA5BJS6joIAAvESiF0AqiZqjapUjafyyaUGoEqwrFRHxx9/vM85V04BqGZuqk5ifPWF6tu3b7w+TZwtAggggAACCCAQQiB2Aahe01//+lc/Al7zhmcWpXhQ/0oFoQr6yqUo790rr7yS83SUkumCCy7wqUk0Aj41sM65EU8ggEBWAV3sada0mhblYmzv0gdREEAAAQRKKxDLAFQESmOUL5lxuY2k1LzJXbt2zfruqWleAbNqds8++2w/qKrYXGlqtlfy50oqb7zxhh+soEFaucp3331nmmkqmGUl23rbb7+9nXTSSdmeYlmFCZTqAu7//u//KkyGl4MAAgiUh0BsA9Dy4KvZWahfqFJIXX755bbhhhv6hPo1DZyvuuqqmp1UGW595plnWu/evW2ttdbKeXa77757zuf0xIoVK3zKKwLQvEw8iQACCCCAQCQCBKCRMFc9iJLNa4q09957zzTnr1JJqVaXUlVA8yFr5qvMWaOqrpl7ybJly/y0p7nX4BkEakfgiy++sFVWWcWaN29eOwdgrwgggEAMBWI3E1IMjdNOWbWe55xzjp9CVCPf//3vf5sS1BN8pjHxAIHYCaiPtyYYUHcQlccee8z3H1VqNV1EbbvttvbCCy/E7nVxwgiUk4Au6JYuXVpOp8S5FClAAFokXDGbTZ8+3f8IXXbZZXbaaaf5+d41lz0FAQTiLaB+3JpaVxeVKi+99JLPa6l0cKNGjbLRo0f7GtC9996bILRM32r1G86WKq+6p3vJJZf4Vq3qblcb6+vzqFzTcSxc0MXxXaveOdMEXz2votf+/PPPfa3nL7/8YpoCbM6cOT6faa4dqlme4DSXDssRKC+Bu+++29d+Pvroo/7EbrrpJj9IUgGN0sOpaLpgzdKmOdDJW+lJyuofTQiipPg1LfkGS9Z037m21+/L/fffb4sXL/az6W288cZ+fMH1119vX375pa2zzjp2ww03WJ8+fXLtoqyW6+9Gv3/BlNTBBd2WW27pJ6HRIN3x48ebLugmTpzI31NZvXvhT4YANLxVjdbUl9t2222X3Eehq1KlZaIgkE+gYcOGvm9svnXCPKf5ufMN8AqzD63z2Wef+QkglPGh2PL999/7H9H11luv2F3UyXZq3dAkGUFRijj92AfBZ7Bc61x33XXBQ/5HoMYCCj533nlnmzdvnulvTwNR1cqmrl3qN6/sK3fccYe/r0Au9Xeoxgev5g5U8aLsNYW6nMXpgk5pHwu9nkJMyll+1llnFVqt4p6nCT6it1T9wF588cXQt0Kjumv7tHXVXBdX8rX9usph/5pOUcFaTYsGtcycObOmuzGlGvr73/8eaj+qwVdNy9ChQ+2JJ57w20yePNk233xz06xeSoOlL1IN+iqmPPjgg7HMgatpMuXy008/+Ze92267mWpDgyZ5LUwkEvbkk0+a8vxSEBgxYoQfnKYBamFuucSuuOIK00Xk3LlzfRCqjCHHHXecT+mnwFO5bDXoVYGouoPUVdH4Bw0m/c9//lPwFHRB16tXr+R6+S7oZsyYkVyvLu5owpjMC83qnoe+O6szUU1191+u61MDWq7vTB2f1xprrFHHZxD/w6uzvFJsafCJZvDS1f/gwYPtmWee8cHI73//e/9Yg9LiUjQFrpqQW7Ro4WtY9PquvfZa38R39dVX+0F1qoFRU6Z+YLMVbSOLbEXT0aoW9OSTT/ZPq2bgqKOOyrZqWS1TQK73WWnUhg0bZt26dTM1g+pH5cgjj/SB+Z133mlPP/20T7dWVifPydSJgL4LJk2a5CcfUXq4Dh06FHUe6iupjCrBtM76Prnrrrv8d07qDgcOHGhqkq/NoovRhx56KOshgouxa665xnShqaLvjmwluKDT375qF3VBp+BZ3zFBxQgXdNnk4rWMADRe7xdnGxMBfTkq8b2axPbff39fM6a5vNVHS30BVRuh2jAFabq6V3NZuRfVotx+++3+B1N9GP/1r3/54GrTTTdN1mrotWnAjSYFuPDCC7P2qXvttdfsnnvuMV3ktG3bNu1ly2L58uX23HPP+eXFTsiQttMIHqy//vr2/PPP+5rk/v37p9V8TpsvAuSMAAAvGklEQVQ2zZ+BBrmoVlSBKgUBDVBT/8WePXv6GkpduAXBVXV01C8ytSVks80288GaLhJTiyb0aNOmTeqi5H2lA6zO1NW6mDrooIOS2wd3vv76a9/XVF3OdAGm/4OiXMwqqrH86KOPgsVZ/6/NCzqdh46vkfSdO3euuIlbsoKW60L3Q0kpQsCNeE24JvUitqw/m0yYMCHhApIav+CDDz444Tqc12g/rvkn4WrlCu7j3XffTay88sqhb+5KPus+XdCRcM1qCRdw+udl4b4DEi5ISVt/7NixCZeiJ+GattOWl+MDV3ORcH3N0k7NBZ8JN4Vs2rJFixb51+p+1NKWBw9cTUjCBd4J14Ug4QLvhB4HZdy4cQn3wxw8jOX/rvtKwgXriYcffjjhAvaEq/FO5LII+wJdP7+E67+X0P81Le7CKDFr1qwa7Uavx011WqN9FLuxCyBybuouXhLffvttzufL8QlX659wtXwJd0FX1Om5VH7+u83VgiZcP9Aq+/jvf/+bcC0KCXcxnPjHP/5R5XktkKnLRZ1wAWOie/fuCdesn/emc85Vnn322YRr3Um4PtAJ1wqUXM11T/HfC66WNLks352333474boHJVxQ7rfT92fqzV3QJVyLQs5duIFMCTeIKeHGUyTXcRe2CdcNILkffdeff/75/vUnV+JOZAJqCqQUIUAAWgRakZtEGYCW6ot4zJgxCddslHzFrkks4Qb6JB8Hd/RjqS9Vd0UeLCrb/xU8t2rVKqFgPigKrDN/BBRw6TV99dVXwWpZ/3f9vBKuBiKx6667JlyTvF+nEgLQrC825MIDDjgg4WrFkmvrB9zVoCd/MOXqco0m3CDG5Dr15c5bb73lgyMFUgoirrzyyrSLFzno70xGcSuuBjPx5ptvFn3artk7oYvBbMHdpZde6gNLl1mlYKClwFPBsKxrUlxNqA8eXY1rwtX6+11VNwANjl/sBd3jjz/uPwsuL6/f1fz58xOuVjjhstD4i2Y30Cnxxz/+0b/ev/3tb8Hh+D9Cgfj9pUaIk+9QBKD5dEr7XJQBaHDmNf0iVi2AvsiDmgLVQuhK3iUiDw7h/3dN0b62NQ41oArOXZN5Qp/91CApeEEKTN0I74QbwZ5wAwiCxXn/d/09EyeccELCDaJIuL6libgHoKrNff311xMu5U3C9blLuD6zCTdKNnQNqGpkbr311qSZG1Dia4pdP1LfCjBkyJCE6+uXcF04EvpBry9FQUS7du18zZrr45jYY489fFAln9QarrgGoKV4H/UdknpxGOxTgZcb9Bg8zPu/Pr8u/ZG/6Mm7YsgnXVO9b+E55phjEkHLSLYgOeTuqrVaZgCqCxaXOSR5sRvsLGiNSW2JCZ7j/9oVIAAt0pcAtEi4IjariwC0pl/ECtZcn08fPCiYVe2hS43if0T/+te/JtwI8oR+SNUtQE1AcSkKqFVroKAxs3z88ce+xkF/G9WtodOPhWpLXF/Koprg5Z2rqJZZTbPFlNmzZ6cFOPn2oUBINZiqgdNNXQn0moLHRx99dJUau8z9pQagChy0rT4/qUXvgZpK9RmqL+Xee+/1fysKYoKi5lTVaKmpN7iAq8QA9NNPP/XN48HrLvZ/deHQRV6homB1ypQpBWtLC+0neN6Nzk/06NHD/23r81ydAFQ1w0899VSwK/+/PgMun26yZjXtyZQHmQGovmd1HplFrQw6rw8//DDzKR7XsgABaJHABKBFwhWxWV0EoDrNmn4RL1myJOEG4iTWXHPNZBASBCP6XwGKS39UMCgpgqzWN3GppKocQ0GAG2BQ9A/XwoULE4cddpiv3aqy8ywL3CCChBtJ7GtY3ICmhBv8k9bnTJso8JT1fffdl2UP+RdVp8lQ77W6EiiAdEno0/riKQB2I/99sOTygOYNhlMDUDWD6tzlklncwBXfjzZzeaU+1sWbG/hW5eW5lD7e3I0i989VSgCqCyo3Qj7h8ngmXIof/zmo8uJDLNDfyI033phQf0l9llzKoBBblX4VXdCrK4AbgOf7Rxc6gv5u9d2pC/Tjjz8+bXU3iNH3r9frcYOV0p5LfRAEoMHFsLbr1KlT6ir+vgJc7UvdBijRChCAFulNAFokXBGb1VUAWsSpZt1ENWMKJtRXUoNSHnnkkYS+DNX8HKcyderUKjUxGmSVGSCpX6gbmZvzpbnRvn6ATuoKqu0L+moFy08//fSEyykaPKzyv5q3FbCpZlFNfC4HacLl203rS1coANWPvIKXbDf98OmH6cADD0w+X+Uk/rdAQaeO71Li5FolIT81AearudTrUf/hoKi/mhu9HDz0/6uZVRcvCizqS9EAHQ3qyzbASAMB1b1FQX7cA1D9PampeKONNvKfPX2m9NlWoF2dov6k+kyra4s+w/oc6WJXf2dxKBqcqfdUAWa2i13VCquLi15brhrVIABVa4ECT5cKzwe0clBxuYr935q6Fe21115xYKm4cyQALfItJQAtEq6IzeIegBbxkstyE/3Auyn90s5NQVpms1ahIECjsF1y7LT9aHCT+o+mFgV+uWps9OOhmqFbbrkluYkGPan/moLQTz75xC8vFIC65PE+KNSPnUtfk3AJ9ZM3DerQD1z79u2Ty5IHy7jzpz/9KaFboaLXdOaZZ+ZcTQGojqkA000zmHCpbHx/T71eFTWNqqZ11VVXjU0wkfPFVuMJvbeq5VYtqPoVZhb1s1WgoRo2+cWtqHl8oAuo1G9c56//9XlSDWbYogsT2WgUu/YRfJZ00Zuvi0rm/tUHWQN/Uov6Zrvk9sk+7anPZbuvCwUFkZlFwbRqswtdfLvZmhLq35uvqMVFXVzy/d2pC40GaA0fPtx3j9Ho/GB9fabk5NJPJdRNgBK9QEP3BlAQQOB/AspD6QKEtETp7ovdzzDivsSTTq5JyVwaGp9UPrkw5Y7yWLqRlSlLzJQjT8npU4tygWo/lOoJaCpb9wPk518PtnRBrM+rqITcyrkq70LF9Wc1V4Pi85G6WhJzAZ652iN/c4OJ/OYudU1yWa796f3WPO+FinKBuoFoOVdzNTs+z+p5553npyxUHlmXjsY07arKxRdf7PMoKg9jZg7VnDutgCf03irBuSYwUI7IzKJE7C4ILZhfMnO7unysCRduvvlmn3/TVWj4913fPcpRqc+SZg1yFxoFT9EFWT7vrhukZYcffrhf312YJb/DNEuZC84L7kd/U5pFScnfU/OKakPNsuRq+X3+YjfAMu++NNGGjnnuuefqSiBtXc3xrvdPieVdAJj2XOoD15/c/w2nLsu87y4a/fSiru9m5lPJx+7i0dxFn7lUceZanvzr0OxQKspDrBmXlN9Yk4JQohcgAI3evEZHVOLyMNO2BevU6GD1cGPXl8/coA/Tl3FQlEjcDY5J+8LUF6u+pBWwZiv6YnMjodOe0gwl7uo7bZm2z/yyT1uBB1kFNJ+0flQVMKYWTU+qKUJd/02fKNt1f0h9Out9/RjqPdDfjH44H3vssazr5VuopN+u1iffKv45XYDoRzFXcTlh/Y/zaaed5pP+B58x/diqKFm5glTNM1/fiqtp9wGEy3uZ9aW7GkRzA7S8UdYVCixUQOiyVRRYK//TukjVPnSBWqi4GkJzzeQ+qNMFjAJJXbS65nK/aZigUSu6ftN+rnfXZcUUuOkCx3VL8bNvFTqH1Oflp8+bZinKnApaF0Q6R312jzjiiOSUs6nb674+m24gnuliTvPOZ74GTUKhmZBcvmXTPnMVHSfzYj3Xui7rRq6n/HJ9p7vuKsl1NEubiqYr1cWnvisodSNAAFo37kUfVdO36WpZP6y6UtUc3vluRR+IDREoYwHXRGmua4afd16ff80wFRTXTcBPcfjBBx/4WWaC5fn+V+Dnug74WZwGDBhgmnLU9UnNt0nac5qNRjV0mTU+qSvpb9YNeDDX3yx1ccH7wQ+mVtQsN2FqxQruNKYrKKDRxWCuogAwzIVAtu0VeKmGOkxR7bsbUZ6cMtZ19TBdYOoCSLVpql1zA4jSPpeZ+1UNpz7HrhuIue4nPvBzXS0yVyv4eIsttvCBn85HwZ0ufqtbVLOsYEw17NlmONL+XNcP//ehi3Nd5GUrqpmXjSwVhGYWfZY1za5mC3NN/X7dzHX0WBeFah3KV/S3pqlttW6uUora2Fz7ZnnNBRrXfBfsIUoB1zesJNO3RXnOHAuB2hBQDbOCRZfWylxeSHP9P5OHUS2S5tl2o86Ty8Lc0fquD53fr+uHFmYTv45L8m1ulijf7JhtClLVrqnGxc1kZG52loL71TSBaq5ULZJqpfR6NL+8XqPLqlBw+/q0ggIR1YTr86BmVgVA+kxkK64fc7JpOvN51Z7qfVKApKKpKXWRn61oqlnVqg0bNsw/reZmN3jMT7urGsB33nnHXOYF05S1auJV7Xpm0QWUPgtuljdTNw/X39nU1cDN/uMDSl1shClqbldtogJQ3XQe2lb7CVuCqTHVdSVfUS2062NturjLVrQffU51QZevuAFBphpgBb7ZAlXV8Gved9Xquj6jfkrj1P3pfdLfvmqN9befrQS1sfqbUfeBbLWxwXsov8wWq2z71Gctcz/BekFri+t7GywK/b9qaVVrrguX+lQIQGP4brvBF/4LS7UubjYHfzVZqpfhRhz65hE3etI6dOhQ1NzEpToX9pMuUBtffm4Eu/8RUJOXfljiVNzMUr6WRK9Bn9fMojnq1eSnQEBN62GLarAU0IwaNcrXTmXbd+a+dthhB98SoVow1YTuu+++/u9HNT76sXYTDvimPu1XffXyFQUvbgCS7waiHzutrxonl8bG/xC7nJi+X1u+fdSH59THVwGXAhkZuxHjpr6guYJGmejzoPdCP/SZfWjVHUY1mWpqVllppZX8/5n/6O9Q78H111/vm6P1WOeg1inVQAZF3ShUy+lyAJubmCFYnPa/arPV9K2b+jKqH6sbNOQDUDVBK3BVbaG+i/MV/f2qn6PLdelrMlW7GPRB13moSV41sqqhzVZ0nioux2be7wH1RVYtc64+kzoPvd5CRWb621BrRbaiQFd9NdXcr1pOdQnYZJNN/Pzt6hOtbgY6V9Ued+nSJdsuLLU2NltAHNTGan/y0nun39ZsxQ3CMjeQyb8vujDRhYwuOFOLLl61T33f5CqqnXYzQ/nPni4Q5KBuWepXq8+eXrc+03KsF8UBUIoQKIdR8K5mJC3lTHVehkY0u6u+tE00I4T70vUjA92H36fuyJxmMW2DiB5EOQpeoyH12jW/clCU5kPL3A9CsKhgfslSjRjXATWK1X0h+bmc9blLPbfghPKNGNc6pZjiUa/JfcEmXLCVvGkUqlK9pC5zNRreKzi3zP81Ct714UzbRiPa9RpT9+OChJyj4DP3WS6PlS7H1QD590qfGd2UOUD5HJVAvlDR/NXKCOACZj/iPTXtkBJlK9ep3gNlGqivpSYjxpWPMpj5ZuTIkWk5eMPOwuVq1tK+D1zNl8/I4IKIKm+J5iK/5JJLqizPt8DV4CaUQkjfe3qv9RlywU6+TbI+p5ROLqhK5gB1wWzec1E6Io1Qz1dcba4/n1zpnPT51/m6msl8u0mcffbZPmNF3pXck0rppu82fV8Ef0+arMJ1E0jMmjUr7+Yata+MEYWK3jftO1cies36puddcJhwNd3+d1Hp1GSbWgp9Bz/88MM+tZS+L7U/JdNXHmPNbKbJSVytus/goewb2Wa0Sj1WpdzPHu47HUr5C+S68gtz5u6P119BBuvqylu1N2rO0JWcmgRUu6oRhO5LpU5Haru5r23DDTcMTrWo/zWI489//nNR29blRurDpNoRXRlrhKtqb9QXS4NRgqbCMOen/ei9DIr2qVoEN8Wjr63Te6x9ax0tz1b7o1oPnUdqyfYZVE1Uvit4F4BWqbHM1o/LpdQx9W8rVErVXK3BIy+++KJv+lY/NzXBqzlR55HNI9t5qblPg9bUnKbmRdUYBbVL2dbPXKamQNXcqsYzs+ZVTZUuH6ZvpnXpr3zNSTA4KXM/lfZYTa7qo6tmUpcX1dfAacS4ajyDmsYwfWP1fqjZXDXM+ntygZ6pditfv9JMS9XaqRuEtlPXC/XjVL981Xynfo5dKiPf/O5mDcvcRd7Hek9Vg66bavn0nquGrrpFtbz6jtDNTRDhW830mcxV1CVAtez6rs3WD1S/Geom0Llz5yq1x8E+9TejQUEaGKXfj2yffb2Ho0eP9iP3g+1y/a9R+bqpaCS+anDVDS1M0XdQKWpj1UyvrhLqv62immXVhp5yyim+1l3fpWGKSz3nP6vqZ6taV3VDUDchlyPad5nQPvR3rdpuDYRUjXXFl0qJpKN+HXVVA6o5xV0TUehbLhfXfyYtz5r74fRzfGeurxk03B9Y5uKKfRzUgConZFAb55p+/BWrcgwGy1SL574ccs6wU6raQtWcqRYlKK75y18t69iuqSZY7GsJcuXM1ErKCeh+xPz6lTTFo/si9/PTy8M1V/t56FXTo8cuhZHPAZhEynPHNaH6fKDaTq0ALtj2tRV67H5wI8m5qZmX9D4pN2m+4oIxX+OWL+l9vu3j+Fzw96RaLX3/qSYzKO4C1dceBY/D/i9HTSmrGin9LYWtAdX+9bekz4a7gPMTC6iWTHPVuyZjP9GEa573NWX6/lQNaRyKcua6ygf/ulyXgYQL1P1kB/pf0526AD/hLjiTOXZzvSbVfrrA08/8JQ/VAF977bU+Mb5aB+Sm/MFBbttc+6np8lLVxionaWZtp87NVdj4Gmp3ce9PNV8NqOv77V+3as+Dotykqu3MLK67QcIFuZmLK/IxNaDuryFORX2PdOUftrhPbahV1f9JKUEyi0YDqwN3mKJj5eqgrRpV9WfK1ccmzP6jWEe1GZn5HFWjl9lfTOei9XL1myxVbaGu+lOvsOV70UUX+Ro2vTc6r8zzLeQUpI5S37LU4mZf8TU4GvRSaDBC6nZ1dd8FYL52RHk/VUukmsqg1lCDITQYSP2r1Kcu34AMpTbTIBKXJNvXaqgGUp9T9clysxf5vzcNJtEo4Ww1OqV6/Rp0pIEMhd5P/R2pFko11V27di3V4au1H9XwakBVtr+Lau0o5MpyD0aM6/Or/pEa7KM8qcUWOaofp2oa1W+0OoNH1HKg7wV9dtR6FBR9DnVTLaZquFSjqPOOQ9FnXueuz7/6XWowkz6P6teoZfr7UO1doZpm1Tzqs6laQrUoqC+nfhuUqkxZBlSbK7/aLqWqjdX3i/puZ7Y4yUKtJsolXKimVf3VVXOumuig36sGUWXW5moAnWpEM9P11bZVne0/7mG1aoTUN0+zGkRZ6qoGVPOTq+Yj1019w4L+MrqazVVUA+qai5JXoep/oivdzKJpDt0PYubi5GPN1FGb83EnD1RP76jvpvo7ZSuqXXBf6gn1Bc539a1tVbNWaVM8avo8zfqS2k8y08l1u/A1XOpXl63oe0P9uVxQn+1pv0xThKpfq2vuzblOKZ5wP06+lsQ1kxbcnfreutHTBder6Qr6vnGjkRNugEvC5W70u3MDXRKuCdqfq/q3qm9bFEXfNaqp1GxI7gfT95XVdJOaySbfnOBhzk3Tybpm44TrguRXVz/T1BaGfPvQrFsuAEm4JueE68bi+2irxks12pqZKK411aoRVb9lvY6aFHfBkHD5Sas1G1NNjpe6bSlqY/Weqo+6ZnFyk1Ok7t6PBVDtsBvk5Gu887VCafY3/TarRji1Bj/Yofqi9uzZ00/p67oABYsr+n9dmcSuqAlRnZjXd52R9cHQl5FuakpRE8GQIUOqzCtd6hdZVwFortehQFzNBGp+1FSErj9SrlX9cjWry0zNja4Wxc+FqyaW4A9MTf1qJlEzpua5zlVKMR93rn2zPOF/0Erx5acAVO93pUzxWKrmagVxsinUTKpAQt83tVnUJKm/NzcRQt7DaBCagmYNMqnNouDT9Ufz37H6XtGgMH0XuBq9hOs/6S9o1DzpavsSGpwSZXGj3v0FswZw6HOt5m9X4+0DnWLPQwGu6++XHLSTL5jIdwwFW/p9crVe/tzcqOh8q/NcLQsoXlBFipq71U1HnxdduKsCJuiWVOgUdIGq30qXFqrKqvou0sWp9pvvM6PPl/aj7gnZirp4aQCiBl7VlxK7AFS1A/qycR2dfaCpviWq9dPVp+aSds3TfjStfixcM1ytvY/lFIDqC09/TPoDcE2NVebxzYagUXauM3/CNR8lVEuk0YL6owz6n6lPnPanGoZsV2vap34wFRzVdD7ubOfHst8ESvHl51LWJHSF7Tr/J1T7rQs1BRVBzaBqfnQBF1Vt1m+vrrh76geoz6deV6Gi/ry5gjrXrJa3hj/Yt0uN5I83b968YFGt/K+aPF0IKvNCtvLee+/5H7B8rRKuadAH1Qqsw9yyHUfL9F3qpolNqDZGc4MH/QNVA5pa9F3omgxTF0V2vxQjxt3Uq/57Tp9/faZcztWEm9ygWv1+dR4uB2lCfScV5OimvylduBS6uIkMiwMlalIbq/dRF2W5imrN9RkoVFyqw6yruKb3RK7nsm5QAQtjF4AqIFKzW75mAQVG+uPP/KIs5ftVDgGoaj0VgOsHS01yDzzwQI1foppdVPSjo1rQfEXNG/rCVnNTalGTpTrfb7zxxr6WRvvUetQEpCpV736pvvxSj5o6CEBffrpCj0spVXO10qqoBaBQUcCrYC7f906hfYR5XheGwUAN1zcxMdwNVFAtzZVXXpkY6FotlJZHgxTydTtQsKimPP3N6ftSwXe+W67z0kVparcNfUa0Tw38Si1uVHPCZStIXVQn99UVS69TFxyFipwVHOq3RK9J763+V8ozfa+GLRpUogtEVYgE+9F3sZrlKQggkF8gdgGo8qHlaxIOXq7rTJ3QSOXaKnUdgCr4C35kXGf3ULWeqRaq/Qw7ml61P9mKgiJd6WfLSagvZtcZPdHD5U5zA5D8lzMBaDbF/MtcuqUqtZJqUlKQn1rUNHTWWWelLkreVy2hSxeT0GcmKAqkNOI/tXZbtThucoOERvSWeylVc7U+k2r2LtRaolaC1GwEtemj90GtOWrFCZoM9b9yg6pWMkwQrIs+BVf6DtT+iikuzYwf5Z26rUvOX6VmUCPTg76TqeuW430FhqplDprHZaQWHPUBVQDpEtWHOm3VULvBJ8nuCcrP6lLqJP7pWpTUbYFSeQLqa+9SMaW9MJcmy7eguOTyacvzPdAFpS4SU4syMOjvKEyu4NTt4n4/dgGofmRVE1CoKD1GrsEbhbYN83xdBaC6OleKD5cPzdd6FjsQIUgjpC/dQrd8/VqUJkgJjJU2InMgmH7UNUhBfVt0DALQMJ+s9HX0PqnzempRPyEFKKkl3yCkILVUagL7YpLrpx6vHO6XorlaF1HqG6Y0ZLk6/utiVgFgmAvfUrsoVZASbofpapB5bP2Yqb+mzr+Yos+LalzVvy1b1wO1kKgLgwJ4N5VkMYeIfBv9Pen7Ssno1XUpKGr6DBuABn9PqiF2I7z9BXawH9WgEoAGGpXxvy7m1L9YfwsaF5FadMGirkz67BQaCKeKA3XR0LqZXWz0+6nl6gbiRtynHqKi78cuDZPrh+STQ2v6PSUS1hzJSmWgBMOuU74p0a5rWjHXkdcneXVvakUVJfF1zWr+NSntjJL96paraJ7hbMVdqft5j7M9p2UPPvign4pQKUQ0L2+uovNROolSzsed61gsRyBVwDV9+nQvrvbNp9JR2hVXa2hK06NUUkpcrvRJrmtK6mZp9/X5VuoZ7UOpjZSuSYm4XTOqT3yt9CuupcCn01Haq6iL+3ELlYw/23kprZZSO+m7sZiiqQbdRaNPUaVpIpVgPLXoe9ZdCJkb9BlJWp3UYxd7XxMbaG52N8Ldp3LSb4g+N9UpSkOkSQE0eYOK0lFpP26Ec3V2w7oxEXAXVz71ndIfui4xaWetaTmV8k2TG2jOek1woGlDsxVXcWaaZle/rZnraAIKTTCi5PaaflT71HdTxZc4hteaMkv9oDQS1L1BVW7qoF/bVxF1VQOqfks6dthbdd9f1WIGgw3UfJ5aS5BvX+oHmqsDtZoA1Uyfqyk/337r+3PUgOb/BJSiuVpHUP9BlwvSp1MJvlNUs6HBfdm6mOQ/q8p6VsbZpgZUjU6+QRnlqqCuKC6Q8F0c9F6rz6gGHel+2CZ4tUS5HLF+QJ8+JxqMqT67qi2mBrRc3/nizkuZHtxsTHk31t+I+v7mGoynz5w+X4VG3QctU8W2bOY9yTJ8MnY1oO5N9Fef7o0y1w/MXNOQr/V01eSmhLFuhHyV5K7aJmxR0uowNR3uA+en03KBYNhdl2Q91QDrVhvFjeDzU4EpabzL/ecT77qmx5yHcj9KvoYl5wopTyhhtZLxUhAopYASfp944on+5i6AzF0w+Zo6l5evWofRZ1M1HbopyblubhBd2U+cUOhFKlF2TacX1XeApg5Ubaob6euTv2uKUk07qlrjuBUlSnd5Tc0NUvWTC7igwE+vqNehaT1dyh4/DaKmfcxVZOIu0P3Npb/z09hqP5pC1XVJ8PtQTZbWyfcdmmv/LC8fAX2nqPYyX9H3kKbO1N9HtqIaTZVCE3zo86LJTVyasWy7qbxlZRgU1+kp6cpWAxwK3dR3LHUAR52edA0PrnyCyuvnPt0+ybP6boYpQV8obRfmRh/QMKrp61ADmu7Bo/ACpZheVN9zmgwh+PtWHlnV9ASPlV+xEr4H9R2oPMrK3qHXplpNJQyvblGmAOWhDow0pavS81DiK6DPhOtiVvAFaFpX/a1kK/pN1edKKb/yFcUfGiCnvsX1oRTXOchJVmrR1aqmHit0U/+MYvtWlZPdY489Zq4Jylziej/1mvq7qV9tmKI+T5oOMddN+3Ij9f2u3Hzqfhq2MPtlHQQQqJmApoh0Ayb8FJPqD+tSbPk+rS6gNJflwFxSbd8/1jUN5jyQy7RgbuS/ubmu/XS8am1yo3dN/e9dGihz87Ob+pirpk8tQnEuLsm+b/FxE3GYyxDi3TSeoLpF36UuFZS57gm+r5/Lt2suI0h1d8P6ZSTguuHYk08+mfeMXLDopy/VutmKflPVCqixKfmK6wJibmS95dpPvm1j+Vx9iLJ5jVUFdMWvqRzdh9ana1G/2lIWXfW7oNPPkqJZQcKkjsl1fKV0ytYHLdf62ZYrx2W2kbzZ1i2nZaoB1fRtO+ywQ/Km/mauGTH5WM9plppc2QqCmmr1dQv2o/dG770yFATLdCwto6a6nD4B1T+XUk0vqlH/br7zvFNJqh+k+uK7pufqnyhbIBADAX3GNduX656R9XdIvy0HH3ywz5ShVE25itKa6XvaDULKuoq21fe669aS9flKXBi7PqAasaiRZGGK+1CYq8oOs2q9W0c27g/LXAJm3zfTzQWf00D9vTTSNUxRv1CNFFTtiEYTT5s2zVyAU3BT1aCoFnb69Ol+NKDr0O/7Z7kURL7/mfpVuVyM5mZ58X2sCu4wYwWNPHS5Mn0NTsZTZf3QBYXmUnOknWO2q2NlRNAI32xFtfVuYF7aUy6w8FfkaQvdA62nPkiU+Aq4Ga98DadLWZfzRah/o0stY+ecc07OdVxeS3ODL8wl6s+5jvqsuWZH0zEL9W/LuROeQKCMBfQZVxyhmv6nn37aj2BXi55aFdQ3+oUXXvC1lm4WQVONd67iJpMwd3Fo+u116Zh8i6ALOP0YFsU0+ntTTambjS7XLipueewCUDeVoO/sqwFISl2QrxlcaUgo2QXcSE1ztZL+STeSNftK/1uqP5owRelN3ChQc9MFmkt87lNXhE0loYFfSo3ipgO1kSNH+gDWzfJkLo+oHxDlchKaS8ruu0aoeTFbUdCbq9nM5UT0aadc3kK/qdJnuFHP2XZTVss0wKGmRSmF1IxKqR8CurBUCqVCf3uub5tvltdApcwUS5JSFxqXn7AgmvZTqGmx4E5YAYEyFjjssMP8b5NrFfBp3ZR6S0Vp3/Rboou5XBUAwctyLVc+5ZvLO+wDWTfLmKlLjLr7adkxxxzjK1iU5qu+lNgFoMrrp2DEzVFsrvO7KTcXpfoCGu1bqqJaT/0BKnBUfjy9PxohG7YocFX2AdWi6P1VXkY3kYD/owxy7Sk/mi4+VFOrY+mPNrOo/8w999xj6s+l/japRbkhlSlBP6oq6gNHQaASBXQRpz6ahYr6mqkFRBco2UrY/ShjgGpyKAhUsoBaA3RTcd2aTK0IykFenaIKMzf9r7+p1c/NzOWD2Hr7exTXfgWutsvPBpQ5pVVcX09cz9sFjz6PnvqBabpHjZqtbtHoU02xmlo0O41LlZK6KKFpz9wfe8LVsKYtDx5oNK5mONEsUS4YThudq6nONIKXgkClC6gPbymmF1WfYs1Lr5G5uYpy/7pmQz+dZa51WI4AAghkE2ighdWJ4MtlXdV+Pv/8834Ed64r+HI510o9DzVDqOlOV3Lqu6Ja6XxFzfLZakbVh8ZNJWnqCqC+nioadajcappZIijqI7PXXnv5fjRuOspgcZX/VROqmUnUl9EFnv4KU7WqcewDWuXFsQCBAgLqWqM+warB1Ch15UfOLOrTphnMbrzxxpx5j5X3U035bhBh1lYHN02oufmrTfmD1e1GOZgpCCCAQFiB2AagYV8g69WegNKxKHAMWzSAKHMKMm2rayAFsrppekUFmalF/X1vueUWPx2i0pwUSomhbZWUXN0zNF2gkuqr6YMANFWV+5UsoHRCml5UF4f5phd181fnZbj00kv9QCUlnNfAQPUdV/cXJcpWdxcFu0q+rsFyFAQQQKA6AgSg1dFi3VoT0A+a+sZoRprrr78+7TjqJ6MaVs06pXm9s9XopG2Q8kA/jhpspL5uGrWoPIYUBOqDgPp4qs+0MkCoD7SK5pZXsKiaSwWmYYpmUtLFnDJU6GJQRYMDlR1DAwIZ7BlGkXUQQCBTgAA0U4THdSqgUYEKFlOLulu4GUZ8iotiprXTIAmlc9IPsprxKQjUN4FSTC+qv0NlmVBrwgYbbFDfCHm9CCBQYgEC0BKDsjsEEEAAAQQQQACB/AKxS8OU/+XwbBwFNG2dmtnDll133TXrqjNmzLAlS5ZkfS5zoZr6lUyYggACCCCAAALRC1ADGr05R8wQ0NzJ1cnnmitxg2Zc0rz0YYpLMWMuXU2YVVkHAQQQQAABBEosQA1oiUHZXfUFlDIpV62m9vbRRx/5qUCV9qlfv345D/DPf/7Tz3aUawUNxhg1apSfIaZPnz65VmM5AggggAACCNSyADWgtQzM7osXUE3nddddZ0oVo7nLx44dW620T8GRFy9ebJpJ6a677jLN63vrrbf6dDLB8/yPAAIIIIAAAtEKNIz2cBwNgXAC6hOqnKEKHFVb+fbbbxcVfCpJtnKHPvzwwz4fqKb7VC5DCgIIIIAAAgjUnQABaN3Zc+QsAkGtZ5cuXeydd97xeT9Vc1ndOXe//vpr69+/vw9aN9xwQ5s1a5YPZotJ45TlNFmEAAIIIIAAAjUQIACtAR6bllZAOQY1e8vJJ59s++23nw9ADz744Gof5LHHHvO1ng899JCNGTPGnnvuOZ/Ivto7YgMEEEAAAQQQqBUBAtBaYWWn1RFQrecNN9xgW2yxhW9q1/zVmuavmFpPzW99wAEH+IBz5syZPgE9tZ7VeTdYFwEEEEAAgdoXYBBS7RtzhAICmnrzpJNO8mtpkNCaa66ZdwsFqNlKz549berUqX4mpV69evkZW7Ktp2WaRnDIkCG5nmY5AggggAACCNSiAGmYahGXXYcTaNmypZ/nXWv//PPPtmDBgnAbZqylwUU//fSTX/rZZ59lPJv+8KuvvkpfwCMEEEAAAQQQiEyAGtDIqDkQAggggAACCCCAgAToA8rnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFJuDoYAAggggAACCCBAAMpnAAEEEEAAAQQQQCBSAQLQSLk5GAIIIIAAAggggAABKJ8BBBBAAAEEEEAAgUgFCEAj5eZgCCCAAAIIIIAAAgSgfAYQQAABBBBAAAEEIhUgAI2Um4MhgAACCCCAAAIIEIDyGUAAAQQQQAABBBCIVIAANFLu/9duHZMAAAAwDPPvui56RcEg7KgxAgQIECBAgAABAeoDBAgQIECAAAECq4AAXbmNESBAgAABAgQICFAfIECAAAECBAgQWAUE6MptjAABAgQIECBAQID6AAECBAgQIECAwCogQFduYwQIECBAgAABAgLUBwgQIECAAAECBFYBAbpyGyNAgAABAgQIEBCgPkCAAAECBAgQILAKCNCV2xgBAgQIECBAgIAA9QECBAgQIECAAIFVQICu3MYIECBAgAABAgQEqA8QIECAAAECBAisAgJ05TZGgAABAgQIECAgQH2AAAECBAgQIEBgFRCgK7cxAgQIECBAgAABAeoDBAgQIECAAAECq4AAXbmNESBAgAABAgQICFAfIECAAAECBAgQWAUE6MptjAABAgQIECBAQID6AAECBAgQIECAwCogQFduYwQIECBAgAABAgLUBwgQIECAAAECBFYBAbpyGyNAgAABAgQIEBCgPkCAAAECBAgQILAKCNCV2xgBAgQIECBAgECIvGVLBB2hJgAAAABJRU5ErkJggg==" /><!-- --></p>
+<p>This only works because the reverse-keyed items have been re-scored.
+On the raw answers, <em>“I keep in the background”</em> is far from
+<em>“I start conversations”</em> even though both measure
+extraversion:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">tidymatrix</span>(big5_responses, big5_respondents, big5_items) <span class="sc">|&gt;</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">filter</span>(completion_min <span class="sc">&gt;</span> <span class="fl">3.5</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  <span class="fu">compute_hclust</span>(<span class="at">k =</span> <span class="dv">5</span>, <span class="at">method =</span> <span class="st">&quot;ward.D2&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>  <span class="fu">count</span>(trait, column_hclust_cluster)</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt; # A tibble: 10 × 3</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt;    trait             column_hclust_cluster     n</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt;    &lt;chr&gt;             &lt;fct&gt;                 &lt;int&gt;</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt;  1 Agreeableness     2                         2</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co">#&gt;  2 Agreeableness     3                         4</span></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="co">#&gt;  3 Conscientiousness 2                         2</span></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a><span class="co">#&gt;  4 Conscientiousness 4                         4</span></span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a><span class="co">#&gt;  5 Extraversion      1                         4</span></span>
+<span id="cb10-16"><a href="#cb10-16" tabindex="-1"></a><span class="co">#&gt;  6 Extraversion      2                         2</span></span>
+<span id="cb10-17"><a href="#cb10-17" tabindex="-1"></a><span class="co">#&gt;  7 Neuroticism       2                         4</span></span>
+<span id="cb10-18"><a href="#cb10-18" tabindex="-1"></a><span class="co">#&gt;  8 Neuroticism       4                         2</span></span>
+<span id="cb10-19"><a href="#cb10-19" tabindex="-1"></a><span class="co">#&gt;  9 Openness          2                         2</span></span>
+<span id="cb10-20"><a href="#cb10-20" tabindex="-1"></a><span class="co">#&gt; 10 Openness          5                         4</span></span></code></pre></div>
+<p><code>method</code> is passed to <code>hclust()</code> and
+<code>dist_method</code> to <code>dist()</code>. Further arguments go to
+<code>dist()</code>.</p>
+</div>
+<div id="clustering-respondents" class="section level3">
+<h3>Clustering respondents</h3>
+<p>Clustering the respondents works the same way with rows active:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">compute_hclust</span>(<span class="at">k =</span> <span class="dv">4</span>, <span class="at">method =</span> <span class="st">&quot;ward.D2&quot;</span>, <span class="at">name =</span> <span class="st">&quot;resp_hclust&quot;</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>  <span class="fu">count</span>(resp_hclust_cluster)</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt; # A tibble: 4 × 2</span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt;   resp_hclust_cluster     n</span></span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="co">#&gt;   &lt;fct&gt;               &lt;int&gt;</span></span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt; 1 1                      63</span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt; 2 2                     134</span></span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt; 3 3                      84</span></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co">#&gt; 4 4                     107</span></span></code></pre></div>
+<p>(Counting on the tidymatrix itself,
+<code>count(resp_hclust_cluster)</code>, would also aggregate the
+matrix, and so drop the stored analyses; see <a href="#when-stored-analyses-are-dropped">below</a>.)</p>
+</div>
+</div>
+<div id="k-means" class="section level2">
+<h2>k-means</h2>
+<p><code>compute_kmeans()</code> wraps <code>kmeans()</code>; arguments
+like <code>nstart</code> and <code>iter.max</code> are passed on.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>  <span class="fu">compute_kmeans</span>(<span class="at">centers =</span> <span class="dv">3</span>, <span class="at">nstart =</span> <span class="dv">25</span>, <span class="at">name =</span> <span class="st">&quot;resp_kmeans&quot;</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a></span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a>km <span class="ot">&lt;-</span> <span class="fu">get_analysis</span>(tm, <span class="st">&quot;resp_kmeans&quot;</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a>km<span class="sc">$</span>size</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="co">#&gt; [1] 126 137 125</span></span></code></pre></div>
+<div id="profiling-clusters" class="section level3">
+<h3>Profiling clusters</h3>
+<p>Cluster labels are ordinary metadata, so the grouping machinery from
+the <a href="dplyr-verbs.html">Working with rows and columns</a>
+vignette turns them into a cluster × trait profile: average the
+respondents within each cluster, then the items within each trait.
+Summarising replaces the respondents with clusters, so the stored
+analyses no longer fit the data and are dropped with a warning;
+<code>tm</code> itself is unchanged.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>profile <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>  <span class="fu">group_by</span>(resp_kmeans_cluster) <span class="sc">|&gt;</span></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>    <span class="at">n =</span> <span class="fu">n</span>(),</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>    <span class="at">age =</span> <span class="fu">mean</span>(age),</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a>    <span class="at">life_satisfaction =</span> <span class="fu">mean</span>(life_satisfaction)</span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb13-10"><a href="#cb13-10" tabindex="-1"></a>  <span class="fu">group_by</span>(trait) <span class="sc">|&gt;</span></span>
+<span id="cb13-11"><a href="#cb13-11" tabindex="-1"></a>  <span class="fu">summarise</span>()</span>
+<span id="cb13-12"><a href="#cb13-12" tabindex="-1"></a><span class="co">#&gt; Warning: Removed 5 stored analysis object(s) due to summarize: row_pca, column_pca, item_clusters, resp_hclust, resp_kmeans</span></span>
+<span id="cb13-13"><a href="#cb13-13" tabindex="-1"></a><span class="co">#&gt; Metadata columns are preserved.</span></span>
+<span id="cb13-14"><a href="#cb13-14" tabindex="-1"></a></span>
+<span id="cb13-15"><a href="#cb13-15" tabindex="-1"></a>m <span class="ot">&lt;-</span> profile<span class="sc">$</span>matrix</span>
+<span id="cb13-16"><a href="#cb13-16" tabindex="-1"></a><span class="fu">dimnames</span>(m) <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb13-17"><a href="#cb13-17" tabindex="-1"></a>  <span class="fu">paste</span>(<span class="st">&quot;cluster&quot;</span>, profile<span class="sc">$</span>row_data<span class="sc">$</span>resp_kmeans_cluster),</span>
+<span id="cb13-18"><a href="#cb13-18" tabindex="-1"></a>  profile<span class="sc">$</span>col_data<span class="sc">$</span>trait</span>
+<span id="cb13-19"><a href="#cb13-19" tabindex="-1"></a>)</span>
+<span id="cb13-20"><a href="#cb13-20" tabindex="-1"></a></span>
+<span id="cb13-21"><a href="#cb13-21" tabindex="-1"></a>profile<span class="sc">$</span>row_data</span>
+<span id="cb13-22"><a href="#cb13-22" tabindex="-1"></a><span class="co">#&gt;   resp_kmeans_cluster   n      age life_satisfaction</span></span>
+<span id="cb13-23"><a href="#cb13-23" tabindex="-1"></a><span class="co">#&gt; 1                   1 126 45.53968          6.317460</span></span>
+<span id="cb13-24"><a href="#cb13-24" tabindex="-1"></a><span class="co">#&gt; 2                   2 137 44.18978          7.350365</span></span>
+<span id="cb13-25"><a href="#cb13-25" tabindex="-1"></a><span class="co">#&gt; 3                   3 125 36.18400          5.168000</span></span>
+<span id="cb13-26"><a href="#cb13-26" tabindex="-1"></a><span class="fu">round</span>(m, <span class="dv">2</span>)</span>
+<span id="cb13-27"><a href="#cb13-27" tabindex="-1"></a><span class="co">#&gt;           Agreeableness Conscientiousness Extraversion Neuroticism Openness</span></span>
+<span id="cb13-28"><a href="#cb13-28" tabindex="-1"></a><span class="co">#&gt; cluster 1          3.46              2.95         2.79        2.90     2.33</span></span>
+<span id="cb13-29"><a href="#cb13-29" tabindex="-1"></a><span class="co">#&gt; cluster 2          3.69              3.42         3.33        2.67     3.83</span></span>
+<span id="cb13-30"><a href="#cb13-30" tabindex="-1"></a><span class="co">#&gt; cluster 3          2.86              2.19         3.08        3.93     3.26</span></span></code></pre></div>
+<p>Personality traits are continuous and do not form natural clusters,
+so k-means simply cuts the cloud of respondents into regions. The
+profiles still make sense: typically one cluster is high on neuroticism,
+and it is the one with the lowest life satisfaction.</p>
+</div>
+<div id="comparing-clusterings" class="section level3">
+<h3>Comparing clusterings</h3>
+<p>Several analyses can live side by side as long as they have different
+names. Cross-tabulating their labels compares them:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="fu">as_tibble</span>() <span class="sc">|&gt;</span></span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="fu">with</span>(<span class="fu">table</span>(<span class="at">hclust =</span> resp_hclust_cluster, <span class="at">kmeans =</span> resp_kmeans_cluster))</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a><span class="co">#&gt;       kmeans</span></span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="co">#&gt; hclust  1  2  3</span></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a><span class="co">#&gt;      1  7  0 56</span></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a><span class="co">#&gt;      2 78 23 33</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a><span class="co">#&gt;      3 38 35 11</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a><span class="co">#&gt;      4  3 79 25</span></span></code></pre></div>
+</div>
+</div>
+<div id="managing-stored-analyses" class="section level2">
+<h2>Managing stored analyses</h2>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="fu">list_analyses</span>(tm)</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a><span class="co">#&gt; [1] &quot;row_pca&quot;       &quot;column_pca&quot;    &quot;item_clusters&quot; &quot;resp_hclust&quot;  </span></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="co">#&gt; [5] &quot;resp_kmeans&quot;</span></span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="fu">check_analyses</span>(tm)</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#&gt; Analysis &#39;row_pca&#39;: VALID (388 rows x 30 columns)</span></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a><span class="co">#&gt; Analysis &#39;column_pca&#39;: VALID (388 rows x 30 columns)</span></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="co">#&gt; Analysis &#39;item_clusters&#39;: VALID (388 rows x 30 columns)</span></span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#&gt; Analysis &#39;resp_hclust&#39;: VALID (388 rows x 30 columns)</span></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="co">#&gt; Analysis &#39;resp_kmeans&#39;: VALID (388 rows x 30 columns)</span></span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a></span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a>tm_small <span class="ot">&lt;-</span> <span class="fu">remove_analysis</span>(tm, <span class="st">&quot;resp_hclust&quot;</span>)</span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="fu">list_analyses</span>(tm_small)</span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; [1] &quot;row_pca&quot;       &quot;column_pca&quot;    &quot;item_clusters&quot; &quot;resp_kmeans&quot;</span></span></code></pre></div>
+<p><code>remove_analysis(tm)</code> without a name removes all of
+them.</p>
+</div>
+<div id="when-stored-analyses-are-dropped" class="section level2">
+<h2>When stored analyses are dropped</h2>
+<p>A stored object describes the data it was computed on. Once rows or
+columns are removed, reordered, aggregated or transformed, it no longer
+matches, so tidymatrix removes it and warns. The metadata columns stay,
+because they are still correct for the rows and columns that remain.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>tm_filtered <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>  <span class="fu">filter</span>(age <span class="sc">&gt;=</span> <span class="dv">30</span>)</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="co">#&gt; Warning: Removed 5 stored analysis object(s) due to filter: row_pca, column_pca, item_clusters, resp_hclust, resp_kmeans</span></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="co">#&gt; Metadata columns are preserved.</span></span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="fu">list_analyses</span>(tm_filtered)</span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="co">#&gt; character(0)</span></span>
+<span id="cb16-9"><a href="#cb16-9" tabindex="-1"></a></span>
+<span id="cb16-10"><a href="#cb16-10" tabindex="-1"></a>tm_filtered <span class="sc">|&gt;</span></span>
+<span id="cb16-11"><a href="#cb16-11" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb16-12"><a href="#cb16-12" tabindex="-1"></a>  <span class="fu">select</span>(respondent_id, row_pca_PC1, resp_kmeans_cluster)</span>
+<span id="cb16-13"><a href="#cb16-13" tabindex="-1"></a><span class="co">#&gt; # A tidymatrix: 305 x 30 matrix</span></span>
+<span id="cb16-14"><a href="#cb16-14" tabindex="-1"></a><span class="co">#&gt; # Active: rows</span></span>
+<span id="cb16-15"><a href="#cb16-15" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb16-16"><a href="#cb16-16" tabindex="-1"></a><span class="co">#&gt; # Row data: 305 rows x 3 columns</span></span>
+<span id="cb16-17"><a href="#cb16-17" tabindex="-1"></a><span class="co">#&gt; # Column data: 30 rows x 10 columns</span></span>
+<span id="cb16-18"><a href="#cb16-18" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb16-19"><a href="#cb16-19" tabindex="-1"></a><span class="co">#&gt; # Active data (rows):</span></span>
+<span id="cb16-20"><a href="#cb16-20" tabindex="-1"></a><span class="co">#&gt;      respondent_id row_pca_PC1 resp_kmeans_cluster</span></span>
+<span id="cb16-21"><a href="#cb16-21" tabindex="-1"></a><span class="co">#&gt; R001          R001   2.0329689                   3</span></span>
+<span id="cb16-22"><a href="#cb16-22" tabindex="-1"></a><span class="co">#&gt; R002          R002   2.5004478                   3</span></span>
+<span id="cb16-23"><a href="#cb16-23" tabindex="-1"></a><span class="co">#&gt; R003          R003   2.1131131                   1</span></span>
+<span id="cb16-24"><a href="#cb16-24" tabindex="-1"></a><span class="co">#&gt; R004          R004   2.1817306                   3</span></span>
+<span id="cb16-25"><a href="#cb16-25" tabindex="-1"></a><span class="co">#&gt; R005          R005  -0.7987357                   1</span></span>
+<span id="cb16-26"><a href="#cb16-26" tabindex="-1"></a><span class="co">#&gt; R006          R006   5.1128660                   3</span></span></code></pre></div>
+<p>Re-run the analysis on the filtered data if you need the full object
+again.</p>
+</div>
+<div id="see-also" class="section level2">
+<h2>See also</h2>
+<ul>
+<li><a href="dimensionality-reduction.html">MDS, t-SNE and UMAP</a> for
+other embeddings.</li>
+<li><a href="visualization.html">Plotting and exporting</a> for PCA
+plots and clustered heatmaps.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

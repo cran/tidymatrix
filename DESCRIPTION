@@ -1,0 +1,30 @@
+Package: tidymatrix
+Title: Tidyverse-Style Operations on Matrices with Row and Column
+        Metadata
+Version: 0.1.0
+Authors@R: 
+    person("Raivo", "Kolde", , "rkolde@gmail.com", role = c("aut", "cre"))
+Description: Provides a unified data structure for matrices with associated row
+    and column metadata, enabling 'tidyverse'-style data manipulation. Following
+    the approach of 'tidygraph', users can activate rows, columns, or the matrix
+    itself and operate on it with familiar 'dplyr' verbs, while the matrix and
+    both metadata tables are kept consistent.
+License: MIT + file LICENSE
+URL: https://raivokolde.github.io/tidymatrix/,
+        https://github.com/raivokolde/tidymatrix
+BugReports: https://github.com/raivokolde/tidymatrix/issues
+Depends: R (>= 4.1.0)
+Encoding: UTF-8
+LazyData: true
+Imports: dplyr, rlang, stats, tibble, utils
+Suggests: testthat (>= 3.0.0), ggplot2, knitr, pheatmap, rmarkdown,
+        Rtsne, umap
+Config/testthat/edition: 3
+VignetteBuilder: knitr
+Config/roxygen2/version: 8.1.0
+NeedsCompilation: no
+Packaged: 2026-09-28 13:06:52 UTC; raivokolde
+Author: Raivo Kolde [aut, cre]
+Maintainer: Raivo Kolde <rkolde@gmail.com>
+Repository: CRAN
+Date/Publication: 2026-10-08 11:00:02 UTC

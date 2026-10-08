@@ -1,0 +1,316 @@
+---
+title: "Working with rows and columns"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Working with rows and columns}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette covers the dplyr verbs that tidymatrix supports and how they
+keep the matrix in sync with its row and column metadata. For a quick overview
+of the whole package, start with the
+[Getting started](basic-usage.html) vignette.
+
+```{r load-packages}
+library(tidymatrix)
+library(dplyr, warn.conflicts = FALSE)
+
+tm <- tidymatrix(big5_responses, big5_respondents, big5_items)
+```
+
+`big5` is a simulated personality survey: 400 respondents (rows) answered 30
+questionnaire items (columns) on a 1–5 scale. See `?big5` for details.
+
+## Activation
+
+A tidymatrix has three parts, and exactly one of them is *active*. dplyr verbs
+act on the active part:
+
+| Active | Verbs act on | Matrix follows by |
+|---|---|---|
+| `rows` | row metadata (`big5_respondents`) | subsetting/reordering its rows |
+| `columns` | column metadata (`big5_items`) | subsetting/reordering its columns |
+| `matrix` | the matrix itself | — (used by matrix operations) |
+
+```{r activate}
+tm |> activate(rows) |> active()
+tm |> activate(columns)
+```
+
+Activation is sticky: it stays until you activate something else, so a
+pipeline can do several things to the rows before switching to the columns.
+
+## Filtering
+
+`filter()` keeps the rows (or columns) of the metadata that match a condition
+and drops the corresponding rows (or columns) of the matrix.
+
+Respondents who completed the survey in under 3.5 minutes did not read the
+questions. Let's remove them:
+
+```{r filter-rows}
+tm_clean <- tm |>
+  activate(rows) |>
+  filter(completion_min > 3.5)
+
+nrow(tm$matrix)
+nrow(tm_clean$matrix)
+```
+
+Any expression that works in `dplyr::filter()` works here, including several
+conditions and helper functions:
+
+```{r filter-rows-2}
+tm_clean |>
+  activate(rows) |>
+  filter(age >= 30, age < 40, education %in% c("Master", "PhD"))
+```
+
+Filtering columns works the same way. Keep only the openness items that are
+not reverse-keyed:
+
+```{r filter-cols}
+tm_clean |>
+  activate(columns) |>
+  filter(trait == "Openness", !reversed)
+```
+
+## Adding and changing metadata
+
+`mutate()` adds or changes metadata columns. It never touches the matrix, so
+the dimensions stay the same.
+
+```{r mutate-rows}
+tm_clean <- tm_clean |>
+  activate(rows) |>
+  mutate(
+    age_group = cut(
+      age,
+      breaks = c(17, 29, 49, 64, Inf),
+      labels = c("18-29", "30-49", "50-64", "65+")
+    ),
+    satisfied = life_satisfaction >= 7
+  )
+
+tm_clean
+```
+
+```{r mutate-cols}
+tm_clean <- tm_clean |>
+  activate(columns) |>
+  mutate(label = paste0(item_id, if_else(reversed, " (R)", "")))
+
+tm_clean |>
+  activate(columns) |>
+  pull(label)
+```
+
+## Selecting, renaming and relocating metadata columns
+
+These verbs change which metadata columns there are and in which order. They do
+not change the matrix.
+
+```{r select}
+tm_clean |>
+  activate(rows) |>
+  select(respondent_id, age, gender, education)
+
+tm_clean |>
+  activate(columns) |>
+  rename(text = item_text) |>
+  relocate(label, .after = item_id)
+```
+
+`pull()` extracts one metadata column as a vector:
+
+```{r pull}
+tm_clean |>
+  activate(rows) |>
+  pull(occupation) |>
+  table()
+```
+
+## Reordering
+
+`arrange()` sorts the metadata and reorders the matrix to match. The matrix
+columns of `big5` are ordered by trait; to see the items in the order they
+were asked:
+
+```{r arrange-cols}
+tm_ordered <- tm_clean |>
+  activate(columns) |>
+  arrange(position)
+
+colnames(tm_ordered$matrix)[1:10]
+```
+
+Sorting respondents by age, oldest first:
+
+```{r arrange-rows}
+tm_by_age <- tm_clean |>
+  activate(rows) |>
+  arrange(desc(age))
+
+tm_by_age |> activate(rows) |> select(respondent_id, age, occupation)
+rownames(tm_by_age$matrix)[1:5]
+```
+
+## Slicing
+
+The `slice()` family selects rows or columns by position.
+
+```{r slice}
+# first five respondents
+tm_clean |> activate(rows) |> slice(1:5)
+
+# first three items
+tm_clean |> activate(columns) |> slice_head(n = 3)
+
+# a random 10% sample of respondents
+set.seed(1)
+tm_clean |> activate(rows) |> slice_sample(prop = 0.1)
+```
+
+## Grouping and summarising
+
+Grouping works as in dplyr, with one addition: `summarise()` also aggregates
+the matrix. Rows (or columns) in the same group are combined with a matrix
+function, `mean()` by default.
+
+### Summarising columns: one score per trait
+
+Grouping the items by trait and summarising gives, for every respondent, the
+average answer per trait. Because the reverse-keyed items point in the opposite
+direction, we flip them first (see the
+[Matrix operations](matrix-operations.html) vignette):
+
+```{r score}
+tm_scored <- tm_clean |>
+  activate(rows) |>
+  transform_matrix(\(x, flip) ifelse(flip, 6L - x, x), flip = reversed)
+
+trait_scores <- tm_scored |>
+  activate(columns) |>
+  group_by(trait) |>
+  summarise(n_items = n())
+
+trait_scores
+dim(trait_scores$matrix)
+round(head(trait_scores$matrix), 2)
+```
+
+The result is again a tidymatrix, with one row per respondent and one column
+per trait. The respondent metadata is untouched.
+
+### Summarising rows: group profiles
+
+Grouping respondents gives the average answer of each group to each item.
+
+```{r summarise-rows}
+by_age <- tm_scored |>
+  activate(rows) |>
+  group_by(age_group) |>
+  summarise(n = n(), mean_age = mean(age))
+
+by_age
+```
+
+Combining both steps gives a small age group × trait table:
+
+```{r summarise-both}
+age_trait <- by_age |>
+  activate(columns) |>
+  group_by(trait) |>
+  summarise()
+
+m <- age_trait$matrix
+dimnames(m) <- list(
+  age_trait$row_data$age_group,
+  age_trait$col_data$trait
+)
+round(m, 2)
+```
+
+Conscientiousness and agreeableness increase with age and neuroticism
+decreases — a well-known pattern in personality research that is built into
+the simulated data.
+
+### Other aggregation functions
+
+Use `.matrix_fn` to aggregate with something other than the mean, and
+`.matrix_args` to pass extra arguments to it:
+
+```{r matrix-fn}
+tm_scored |>
+  activate(rows) |>
+  group_by(gender) |>
+  summarise(n = n(), .matrix_fn = median)
+```
+
+### Counting
+
+`count()` is a shortcut for grouping, counting and summarising; `tally()`
+counts within existing groups.
+
+```{r count}
+tm_clean |>
+  activate(rows) |>
+  count(education)
+
+tm_clean |>
+  activate(columns) |>
+  group_by(trait, reversed) |>
+  tally()
+```
+
+## Putting it together
+
+Verbs can be chained freely across rows and columns. The following pipeline
+takes the clean data, keeps working-age respondents with at least a Bachelor's
+degree, keeps the conscientiousness and neuroticism items in questionnaire
+order, and adds a short label to each item:
+
+```{r chain}
+tm_clean |>
+  activate(rows) |>
+  filter(
+    !occupation %in% c("Student", "Retired"),
+    education %in% c("Bachelor", "Master", "PhD")
+  ) |>
+  select(respondent_id, age, gender, education, occupation) |>
+  activate(columns) |>
+  filter(trait %in% c("Conscientiousness", "Neuroticism")) |>
+  arrange(position) |>
+  mutate(short = substr(item_text, 1, 25))
+```
+
+## A note on stored analyses
+
+Analysis functions such as `compute_prcomp()` store their result object in the
+tidymatrix. Verbs that remove, reorder or aggregate rows or columns
+(`filter()`, `slice()`, `arrange()`, joins, `summarise()`, `count()`) make
+those objects out of date, so they are
+dropped with a warning. The metadata columns the analysis created are kept.
+See the [PCA and clustering](statistical-analysis.html) vignette for details.
+
+```{r invalidation}
+tm_pca <- tm_scored |>
+  activate(columns) |>
+  compute_prcomp(n_components = 2)
+
+list_analyses(tm_pca)
+
+tm_pca_filtered <- tm_pca |>
+  activate(columns) |>
+  filter(trait != "Openness")
+
+list_analyses(tm_pca_filtered)
+```

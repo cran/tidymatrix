@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Matrix operations</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Matrix operations</h1>
+
+
+
+<p>dplyr verbs change <em>which</em> rows and columns a tidymatrix has.
+Matrix operations change the <em>values</em>. As elsewhere in the
+package, the active component decides the direction: with rows active an
+operation works row by row, with columns active column by column, and
+with the matrix active on all values at once.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(tidymatrix)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="fu">library</span>(dplyr, <span class="at">warn.conflicts =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a>tm <span class="ot">&lt;-</span> <span class="fu">tidymatrix</span>(big5_responses, big5_respondents, big5_items)</span></code></pre></div>
+<p>We use the <code>big5</code> personality survey: 400 respondents
+answering 30 items on a 1–5 scale (see <code>?big5</code>).</p>
+<div id="summary-statistics-into-metadata" class="section level2">
+<h2>Summary statistics into metadata</h2>
+<p><code>add_stats()</code> computes statistics along the active
+dimension and stores them as metadata columns. Per-respondent statistics
+are a standard data quality check in surveys: someone who gives the same
+answer to every question has a standard deviation close to zero.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>  <span class="fu">add_stats</span>(mean, sd, <span class="at">.names =</span> <span class="fu">c</span>(<span class="st">&quot;resp_mean&quot;</span>, <span class="st">&quot;resp_sd&quot;</span>))</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  <span class="fu">arrange</span>(resp_sd) <span class="sc">|&gt;</span></span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  <span class="fu">select</span>(respondent_id, resp_mean, resp_sd, completion_min)</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co">#&gt; # A tidymatrix: 400 x 30 matrix</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a><span class="co">#&gt; # Active: rows</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="co">#&gt; # Row data: 400 rows x 4 columns</span></span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a><span class="co">#&gt; # Column data: 30 rows x 5 columns</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="co">#&gt; # Active data (rows):</span></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="co">#&gt;   respondent_id resp_mean   resp_sd completion_min</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="co">#&gt; 1          R074  3.066667 0.3651484            2.0</span></span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="co">#&gt; 2          R392  4.900000 0.4025779            1.5</span></span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="co">#&gt; 3          R307  3.900000 0.4025779            3.2</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co">#&gt; 4          R170  3.966667 0.4138410            2.5</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co">#&gt; 5          R219  3.900000 0.5477226            2.2</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="co">#&gt; 6          R352  4.866667 0.5713465            2.6</span></span></code></pre></div>
+<p>The respondents with the least variable answers also finished the
+survey in a couple of minutes. Sorting by completion time shows the
+other kind of careless respondent — those who answered at random, and so
+have a normal-looking standard deviation:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>  <span class="fu">arrange</span>(completion_min) <span class="sc">|&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a>  <span class="fu">select</span>(respondent_id, resp_sd, completion_min)</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt; # A tidymatrix: 400 x 30 matrix</span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; # Active: rows</span></span>
+<span id="cb3-7"><a href="#cb3-7" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb3-8"><a href="#cb3-8" tabindex="-1"></a><span class="co">#&gt; # Row data: 400 rows x 3 columns</span></span>
+<span id="cb3-9"><a href="#cb3-9" tabindex="-1"></a><span class="co">#&gt; # Column data: 30 rows x 5 columns</span></span>
+<span id="cb3-10"><a href="#cb3-10" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb3-11"><a href="#cb3-11" tabindex="-1"></a><span class="co">#&gt; # Active data (rows):</span></span>
+<span id="cb3-12"><a href="#cb3-12" tabindex="-1"></a><span class="co">#&gt;   respondent_id   resp_sd completion_min</span></span>
+<span id="cb3-13"><a href="#cb3-13" tabindex="-1"></a><span class="co">#&gt; 1          R392 0.4025779            1.5</span></span>
+<span id="cb3-14"><a href="#cb3-14" tabindex="-1"></a><span class="co">#&gt; 2          R282 1.3746473            1.7</span></span>
+<span id="cb3-15"><a href="#cb3-15" tabindex="-1"></a><span class="co">#&gt; 3          R393 1.2793677            1.7</span></span>
+<span id="cb3-16"><a href="#cb3-16" tabindex="-1"></a><span class="co">#&gt; 4          R074 0.3651484            2.0</span></span>
+<span id="cb3-17"><a href="#cb3-17" tabindex="-1"></a><span class="co">#&gt; 5          R368 1.4762487            2.0</span></span>
+<span id="cb3-18"><a href="#cb3-18" tabindex="-1"></a><span class="co">#&gt; 6          R219 0.5477226            2.2</span></span></code></pre></div>
+<p>We remove both groups and move on with the clean data:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>tm <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>  <span class="fu">filter</span>(completion_min <span class="sc">&gt;</span> <span class="fl">3.5</span>)</span></code></pre></div>
+<p>Per-item statistics work the same way with columns active. Custom
+functions can be passed as a named list with <code>.fns</code>:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>tm <span class="sc">|&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>  <span class="fu">add_stats</span>(<span class="at">.fns =</span> <span class="fu">list</span>(</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a>    <span class="at">item_mean =</span> mean,</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a>    <span class="at">item_sd =</span> sd,</span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a>    <span class="at">pct_agree =</span> \(x) <span class="fu">mean</span>(x <span class="sc">&gt;=</span> <span class="dv">4</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a>  )) <span class="sc">|&gt;</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a>  <span class="fu">select</span>(item_id, item_text, item_mean, item_sd, pct_agree)</span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; # A tidymatrix: 388 x 30 matrix</span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; # Active: columns</span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; # Row data: 388 rows x 10 columns</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; # Column data: 30 rows x 5 columns</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; #</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt; # Active data (columns):</span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt;   item_id                             item_text item_mean  item_sd pct_agree</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; 1      E1     I feel comfortable around people.  2.951031 1.145793 0.3350515</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt; 2      E2                I start conversations.  3.087629 1.117191 0.3762887</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; 3      E3 I enjoy being part of a lively crowd.  3.373711 1.123868 0.4664948</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; 4      E4                I make friends easily.  3.257732 1.163869 0.4355670</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="co">#&gt; 5      E5             I keep in the background.  2.935567 1.191474 0.3221649</span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="co">#&gt; 6      E6    I have little to say to strangers.  3.298969 1.096529 0.4432990</span></span></code></pre></div>
+</div>
+<div id="custom-transformations-with-transform_matrix" class="section level2">
+<h2>Custom transformations with <code>transform_matrix()</code></h2>
+<p><code>transform_matrix()</code> applies any function to the matrix.
+What the function receives depends on the active component:</p>
+<table>
+<thead>
+<tr class="header">
+<th>Active</th>
+<th><code>fn</code> receives</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>matrix</code></td>
+<td>the whole matrix</td>
+<td><code>log</code>, <code>\(m) m / 4</code></td>
+</tr>
+<tr class="even">
+<td><code>rows</code></td>
+<td>one row at a time</td>
+<td>per-respondent ranks</td>
+</tr>
+<tr class="odd">
+<td><code>columns</code></td>
+<td>one column at a time</td>
+<td>per-item standardisation</td>
+</tr>
+</tbody>
+</table>
+<p>The function must return values of the same size, and the row and
+column names are preserved. Extra arguments are passed on to the
+function; with rows active they are evaluated in the column metadata,
+with columns active in the row metadata (use <code>.env$x</code> for a
+variable <code>x</code> that clashes with a metadata column).</p>
+<div id="reverse-scoring-items" class="section level3">
+<h3>Reverse-scoring items</h3>
+<p>A questionnaire usually measures each trait with several statements,
+and the answers are later combined, for example averaged, into one score
+per trait. Some of the statements are deliberately worded in the
+opposite direction. These are called <em>reverse-keyed</em> items. They
+keep people who tend to agree with everything (or tick the same box
+throughout) from automatically ending up with high scores.</p>
+<p>In <code>big5</code>, two of the six items per trait are
+reverse-keyed. For example:</p>
+<table>
+<colgroup>
+<col width="33%" />
+<col width="33%" />
+<col width="33%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Trait</th>
+<th>Normally keyed</th>
+<th>Reverse-keyed</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Extraversion</td>
+<td><em>“I start conversations.”</em></td>
+<td><em>“I keep in the background.”</em></td>
+</tr>
+<tr class="even">
+<td>Conscientiousness</td>
+<td><em>“I finish what I start.”</em></td>
+<td><em>“I put off important tasks.”</em></td>
+</tr>
+<tr class="odd">
+<td>Neuroticism</td>
+<td><em>“I worry about things.”</em></td>
+<td><em>“I stay calm under pressure.”</em></td>
+</tr>
+</tbody>
+</table>
+<p>Answering 5 (“strongly agree”) to <em>“I keep in the background”</em>
+indicates <em>low</em> extraversion. Averaged as they are, such answers
+would cancel out the normally keyed ones. So before the items are
+combined, the answers to reverse-keyed items are flipped: 5 becomes 1, 4
+becomes 2, 3 stays 3. On a 1–5 scale that is simply <code>6 - x</code>.
+Afterwards a high value always means a high trait level. This step is
+known as <em>reverse-scoring</em>.</p>
+<p>Which columns to flip is stored in the column metadata. With rows
+active the function gets one respondent’s answers, one value per item.
+Extra arguments to <code>transform_matrix()</code> are passed on to the
+function, and they are evaluated with the column metadata as a data mask
+— just like the arguments of <code>mutate()</code>. So
+<code>flip = reversed</code> hands the function the
+<code>reversed</code> column, which lines up element by element with the
+answers:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>tm_scored <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>  <span class="fu">transform_matrix</span>(\(x, flip) <span class="fu">ifelse</span>(flip, <span class="dv">6</span><span class="dt">L</span> <span class="sc">-</span> x, x), <span class="at">flip =</span> reversed)</span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="co"># E4 is positively keyed, E5 is reverse-keyed</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a>tm<span class="sc">$</span>matrix[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="fu">c</span>(<span class="st">&quot;E4&quot;</span>, <span class="st">&quot;E5&quot;</span>)]</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt;      E4 E5</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; R001  3  3</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt; R002  2  3</span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt; R003  4  4</span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt; R004  3  3</span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; R005  1  5</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>tm_scored<span class="sc">$</span>matrix[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>, <span class="fu">c</span>(<span class="st">&quot;E4&quot;</span>, <span class="st">&quot;E5&quot;</span>)]</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="co">#&gt;      E4 E5</span></span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; R001  3  3</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; R002  2  3</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt; R003  4  2</span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt; R004  3  3</span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt; R005  1  1</span></span></code></pre></div>
+<p>After scoring, items of the same trait correlate positively:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">cor</span>(tm<span class="sc">$</span>matrix[, <span class="fu">paste0</span>(<span class="st">&quot;E&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>)])[<span class="dv">5</span><span class="sc">:</span><span class="dv">6</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>], <span class="dv">2</span>)</span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="co">#&gt;       E1    E2    E3    E4</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt; E5 -0.45 -0.56 -0.42 -0.50</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; E6 -0.41 -0.41 -0.34 -0.37</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">cor</span>(tm_scored<span class="sc">$</span>matrix[, <span class="fu">paste0</span>(<span class="st">&quot;E&quot;</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>)])[<span class="dv">5</span><span class="sc">:</span><span class="dv">6</span>, <span class="dv">1</span><span class="sc">:</span><span class="dv">4</span>], <span class="dv">2</span>)</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="co">#&gt;      E1   E2   E3   E4</span></span>
+<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="co">#&gt; E5 0.45 0.56 0.42 0.50</span></span>
+<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="co">#&gt; E6 0.41 0.41 0.34 0.37</span></span></code></pre></div>
+</div>
+<div id="whole-matrix-transformations" class="section level3">
+<h3>Whole-matrix transformations</h3>
+<p>With the matrix active, the function gets the full matrix. Rescaling
+the 1–5 answers to a 0–100 scale:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>tm_scored <span class="sc">|&gt;</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>  <span class="fu">activate</span>(matrix) <span class="sc">|&gt;</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a>  <span class="fu">transform_matrix</span>(\(m) (m <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="dv">4</span> <span class="sc">*</span> <span class="dv">100</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a>  <span class="fu">pull_active</span>() <span class="sc">|&gt;</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">3</span>)</span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="co">#&gt;      E1 E2  E3 E4 E5 E6 A1  A2 A3  A4 A5 A6 C1 C2 C3 C4 C5 C6  N1 N2  N3  N4 N5</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="co">#&gt; R001 75 50 100 50 50 25 50 100 50  75 25 50  0 25  0 25 25  0  50 50  50  25 50</span></span>
+<span id="cb8-8"><a href="#cb8-8" tabindex="-1"></a><span class="co">#&gt; R002 25 75  25 25 50 25 50  25 50  50 75 25 50 75 50 25 25 25 100 75 100 100 75</span></span>
+<span id="cb8-9"><a href="#cb8-9" tabindex="-1"></a><span class="co">#&gt; R003 25 25  50 75 25 50 50  50 75 100 25 50 25 50  0 50 25 25  75 75  50  25 25</span></span>
+<span id="cb8-10"><a href="#cb8-10" tabindex="-1"></a><span class="co">#&gt;      N6  O1 O2 O3  O4 O5  O6</span></span>
+<span id="cb8-11"><a href="#cb8-11" tabindex="-1"></a><span class="co">#&gt; R001 75  25 75  0  50 75  50</span></span>
+<span id="cb8-12"><a href="#cb8-12" tabindex="-1"></a><span class="co">#&gt; R002 75 100 50 75 100 50 100</span></span>
+<span id="cb8-13"><a href="#cb8-13" tabindex="-1"></a><span class="co">#&gt; R003 75   0 75  0  25  0  25</span></span></code></pre></div>
+</div>
+<div id="column--and-row-wise-transformations" class="section level3">
+<h3>Column- and row-wise transformations</h3>
+<p>With columns active the function is applied to each item separately.
+For example, percentile ranks within each item:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>tm_scored <span class="sc">|&gt;</span></span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>  <span class="fu">transform_matrix</span>(\(x) <span class="fu">rank</span>(x) <span class="sc">/</span> <span class="fu">length</span>(x)) <span class="sc">|&gt;</span></span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>  <span class="fu">activate</span>(matrix) <span class="sc">|&gt;</span></span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>  <span class="fu">pull_active</span>() <span class="sc">|&gt;</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">3</span>) <span class="sc">|&gt;</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a>  <span class="fu">round</span>(<span class="dv">2</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt;        E1   E2   E3   E4   E5  E6   A1   A2   A3   A4   A5   A6   C1   C2   C3</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt; R001 0.79 0.47 0.91 0.41 0.48 0.3 0.43 0.87 0.41 0.57 0.30 0.30 0.03 0.31 0.10</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt; R002 0.24 0.76 0.14 0.17 0.48 0.3 0.43 0.10 0.41 0.27 0.86 0.11 0.37 0.84 0.61</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; R003 0.24 0.20 0.38 0.70 0.22 0.6 0.43 0.31 0.70 0.87 0.30 0.30 0.15 0.60 0.10</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt;        C4  C5   C6   N1   N2   N3   N4   N5   N6   O1   O2   O3   O4   O5   O6</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; R001 0.19 0.4 0.08 0.45 0.52 0.48 0.20 0.52 0.57 0.19 0.60 0.08 0.34 0.77 0.54</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; R002 0.19 0.4 0.29 0.93 0.80 0.93 0.93 0.79 0.57 0.92 0.32 0.81 0.90 0.50 0.95</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; R003 0.46 0.4 0.29 0.72 0.80 0.48 0.20 0.24 0.57 0.05 0.60 0.08 0.13 0.05 0.26</span></span></code></pre></div>
+<p>Extra arguments are passed on to the function:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>tm_scored <span class="sc">|&gt;</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>  <span class="fu">transform_matrix</span>(\(x) x <span class="sc">/</span> <span class="dv">4</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a>  <span class="fu">activate</span>(matrix) <span class="sc">|&gt;</span></span>
+<span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a>  <span class="fu">transform_matrix</span>(round, <span class="at">digits =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a>  <span class="fu">pull_active</span>() <span class="sc">|&gt;</span></span>
+<span id="cb10-7"><a href="#cb10-7" tabindex="-1"></a>  <span class="fu">head</span>(<span class="dv">3</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" tabindex="-1"></a><span class="co">#&gt;       E1  E2  E3  E4  E5  E6  A1  A2  A3  A4  A5  A6  C1  C2  C3  C4  C5  C6</span></span>
+<span id="cb10-9"><a href="#cb10-9" tabindex="-1"></a><span class="co">#&gt; R001 1.0 0.8 1.2 0.8 0.8 0.5 0.8 1.2 0.8 1.0 0.5 0.8 0.2 0.5 0.2 0.5 0.5 0.2</span></span>
+<span id="cb10-10"><a href="#cb10-10" tabindex="-1"></a><span class="co">#&gt; R002 0.5 1.0 0.5 0.5 0.8 0.5 0.8 0.5 0.8 0.8 1.0 0.5 0.8 1.0 0.8 0.5 0.5 0.5</span></span>
+<span id="cb10-11"><a href="#cb10-11" tabindex="-1"></a><span class="co">#&gt; R003 0.5 0.5 0.8 1.0 0.5 0.8 0.8 0.8 1.0 1.2 0.5 0.8 0.5 0.8 0.2 0.8 0.5 0.5</span></span>
+<span id="cb10-12"><a href="#cb10-12" tabindex="-1"></a><span class="co">#&gt;       N1  N2  N3  N4  N5 N6  O1  O2  O3  O4  O5  O6</span></span>
+<span id="cb10-13"><a href="#cb10-13" tabindex="-1"></a><span class="co">#&gt; R001 0.8 0.8 0.8 0.5 0.8  1 0.5 1.0 0.2 0.8 1.0 0.8</span></span>
+<span id="cb10-14"><a href="#cb10-14" tabindex="-1"></a><span class="co">#&gt; R002 1.2 1.0 1.2 1.2 1.0  1 1.2 0.8 1.0 1.2 0.8 1.2</span></span>
+<span id="cb10-15"><a href="#cb10-15" tabindex="-1"></a><span class="co">#&gt; R003 1.0 1.0 0.8 0.5 0.5  1 0.2 1.0 0.2 0.5 0.2 0.5</span></span></code></pre></div>
+</div>
+</div>
+<div id="centering-and-scaling" class="section level2">
+<h2>Centering and scaling</h2>
+<p><code>scale()</code> z-scores the active dimension (mean 0, sd 1),
+and <code>center()</code> only subtracts the mean.</p>
+<div id="standardising-items" class="section level3">
+<h3>Standardising items</h3>
+<p>Scaling columns puts every item on the same footing, whatever its
+mean and spread:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>tm_z <span class="ot">&lt;-</span> tm_scored <span class="sc">|&gt;</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>  <span class="fu">scale</span>()</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a></span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">colMeans</span>(tm_z<span class="sc">$</span>matrix)[<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>], <span class="dv">3</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a><span class="co">#&gt; E1 E2 E3 E4 E5 E6 </span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a><span class="co">#&gt;  0  0  0  0  0  0</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">apply</span>(tm_z<span class="sc">$</span>matrix, <span class="dv">2</span>, sd)[<span class="dv">1</span><span class="sc">:</span><span class="dv">6</span>], <span class="dv">3</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="co">#&gt; E1 E2 E3 E4 E5 E6 </span></span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="co">#&gt;  1  1  1  1  1  1</span></span></code></pre></div>
+<p><code>scale()</code> takes the usual <code>center</code> and
+<code>scale</code> arguments, so
+<code>scale(center = TRUE, scale = FALSE)</code> is equivalent to
+<code>center()</code>.</p>
+</div>
+<div id="removing-response-style" class="section level3">
+<h3>Removing response style</h3>
+<p>Some people agree with nearly everything, others are more reserved.
+In psychology this is called <em>acquiescence</em>, and a simple way to
+reduce it is to center each respondent’s answers on their own mean
+(“ipsatising”). This is done on the raw answers: because positively and
+reverse-keyed items partly cancel out, a respondent’s raw mean mostly
+reflects their general tendency to agree.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>tm_ipsative <span class="ot">&lt;-</span> tm <span class="sc">|&gt;</span></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>  <span class="fu">activate</span>(rows) <span class="sc">|&gt;</span></span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a>  <span class="fu">center</span>()</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a></span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="fu">round</span>(<span class="fu">rowMeans</span>(tm_ipsative<span class="sc">$</span>matrix)[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>], <span class="dv">3</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="co">#&gt; R001 R002 R003 R004 R005 </span></span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="co">#&gt;    0    0    0    0    0</span></span></code></pre></div>
+</div>
+</div>
+<div id="clipping" class="section level2">
+<h2>Clipping</h2>
+<p><code>clip_values()</code> caps values at a minimum and/or maximum. A
+typical use is to limit extreme z-scores before drawing a heatmap, so
+that a few outliers do not use up the whole colour scale:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">range</span>(tm_z<span class="sc">$</span>matrix)</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; [1] -2.566795  2.145061</span></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a>tm_clipped <span class="ot">&lt;-</span> tm_z <span class="sc">|&gt;</span></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>  <span class="fu">activate</span>(matrix) <span class="sc">|&gt;</span></span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a>  <span class="fu">clip_values</span>(<span class="at">min =</span> <span class="sc">-</span><span class="dv">2</span>, <span class="at">max =</span> <span class="dv">2</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a><span class="fu">range</span>(tm_clipped<span class="sc">$</span>matrix)</span>
+<span id="cb13-9"><a href="#cb13-9" tabindex="-1"></a><span class="co">#&gt; [1] -2  2</span></span></code></pre></div>
+</div>
+<div id="log-transformation" class="section level2">
+<h2>Log transformation</h2>
+<p><code>log_transform()</code> is a convenience for skewed, count-like
+data such as gene expression or word counts, where a
+<code>log2(x + 1)</code> transformation is standard. It is not useful
+for Likert answers, so here is a small made-up count matrix:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>counts <span class="ot">&lt;-</span> <span class="fu">tidymatrix</span>(</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a>  <span class="fu">matrix</span>(<span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">3</span>, <span class="dv">12</span>, <span class="dv">150</span>, <span class="dv">7</span>, <span class="dv">0</span>, <span class="dv">1024</span>, <span class="dv">45</span>, <span class="dv">2</span>), <span class="at">nrow =</span> <span class="dv">3</span>),</span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">gene =</span> <span class="fu">c</span>(<span class="st">&quot;g1&quot;</span>, <span class="st">&quot;g2&quot;</span>, <span class="st">&quot;g3&quot;</span>)),</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a>  <span class="fu">data.frame</span>(<span class="at">sample =</span> <span class="fu">c</span>(<span class="st">&quot;s1&quot;</span>, <span class="st">&quot;s2&quot;</span>, <span class="st">&quot;s3&quot;</span>))</span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>)</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a>counts <span class="sc">|&gt;</span></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>  <span class="fu">activate</span>(matrix) <span class="sc">|&gt;</span></span>
+<span id="cb14-9"><a href="#cb14-9" tabindex="-1"></a>  <span class="fu">log_transform</span>(<span class="at">base =</span> <span class="dv">2</span>, <span class="at">offset =</span> <span class="dv">1</span>) <span class="sc">|&gt;</span></span>
+<span id="cb14-10"><a href="#cb14-10" tabindex="-1"></a>  <span class="fu">pull_active</span>() <span class="sc">|&gt;</span></span>
+<span id="cb14-11"><a href="#cb14-11" tabindex="-1"></a>  <span class="fu">round</span>(<span class="dv">2</span>)</span>
+<span id="cb14-12"><a href="#cb14-12" tabindex="-1"></a><span class="co">#&gt;      [,1] [,2]  [,3]</span></span>
+<span id="cb14-13"><a href="#cb14-13" tabindex="-1"></a><span class="co">#&gt; [1,]  0.0 7.24 10.00</span></span>
+<span id="cb14-14"><a href="#cb14-14" tabindex="-1"></a><span class="co">#&gt; [2,]  2.0 3.00  5.52</span></span>
+<span id="cb14-15"><a href="#cb14-15" tabindex="-1"></a><span class="co">#&gt; [3,]  3.7 0.00  1.58</span></span></code></pre></div>
+</div>
+<div id="transposing" class="section level2">
+<h2>Transposing</h2>
+<p><code>t()</code> swaps rows and columns, including the metadata. If
+rows were active, columns are active afterwards, so the active
+<em>metadata</em> stays the same.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>tm_t <span class="ot">&lt;-</span> <span class="fu">t</span>(tm_scored <span class="sc">|&gt;</span> <span class="fu">activate</span>(rows))</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="fu">dim</span>(tm_scored<span class="sc">$</span>matrix)</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a><span class="co">#&gt; [1] 388  30</span></span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a><span class="fu">dim</span>(tm_t<span class="sc">$</span>matrix)</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a><span class="co">#&gt; [1]  30 388</span></span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a></span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a><span class="fu">active</span>(tm_t)</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a><span class="co">#&gt; [1] &quot;columns&quot;</span></span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a><span class="fu">names</span>(tm_t<span class="sc">$</span>row_data)</span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a><span class="co">#&gt; [1] &quot;item_id&quot;   &quot;trait&quot;     &quot;reversed&quot;  &quot;item_text&quot; &quot;position&quot;</span></span></code></pre></div>
+<p>Transposing is useful when a function only works along one direction,
+or when a package expects samples in rows rather than columns.</p>
+</div>
+<div id="getting-the-matrix-out" class="section level2">
+<h2>Getting the matrix out</h2>
+<p><code>pull_active()</code> returns the active component: the matrix
+when the matrix is active, otherwise the active metadata.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>m <span class="ot">&lt;-</span> tm_scored <span class="sc">|&gt;</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a>  <span class="fu">activate</span>(matrix) <span class="sc">|&gt;</span></span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a>  <span class="fu">pull_active</span>()</span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a></span>
+<span id="cb16-5"><a href="#cb16-5" tabindex="-1"></a><span class="fu">class</span>(m)</span>
+<span id="cb16-6"><a href="#cb16-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;matrix&quot; &quot;array&quot;</span></span>
+<span id="cb16-7"><a href="#cb16-7" tabindex="-1"></a><span class="fu">dim</span>(m)</span>
+<span id="cb16-8"><a href="#cb16-8" tabindex="-1"></a><span class="co">#&gt; [1] 388  30</span></span></code></pre></div>
+</div>
+<div id="matrix-operations-and-stored-analyses" class="section level2">
+<h2>Matrix operations and stored analyses</h2>
+<p>Every operation that changes the values makes stored analysis results
+(principal components, clusterings, …) out of date, so they are removed
+with a warning. The metadata columns they produced are kept. Transform
+first, analyse afterwards:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>tm_pca <span class="ot">&lt;-</span> tm_scored <span class="sc">|&gt;</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a>  <span class="fu">compute_prcomp</span>(<span class="at">n_components =</span> <span class="dv">2</span>)</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="fu">list_analyses</span>(tm_pca)</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="co">#&gt; [1] &quot;column_pca&quot;</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a></span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a>tm_pca <span class="ot">&lt;-</span> tm_pca <span class="sc">|&gt;</span></span>
+<span id="cb17-9"><a href="#cb17-9" tabindex="-1"></a>  <span class="fu">activate</span>(columns) <span class="sc">|&gt;</span></span>
+<span id="cb17-10"><a href="#cb17-10" tabindex="-1"></a>  <span class="fu">scale</span>()</span>
+<span id="cb17-11"><a href="#cb17-11" tabindex="-1"></a><span class="co">#&gt; Warning: Removed 1 stored analysis object(s) due to scale: column_pca</span></span>
+<span id="cb17-12"><a href="#cb17-12" tabindex="-1"></a><span class="co">#&gt; Metadata columns are preserved.</span></span>
+<span id="cb17-13"><a href="#cb17-13" tabindex="-1"></a></span>
+<span id="cb17-14"><a href="#cb17-14" tabindex="-1"></a><span class="fu">list_analyses</span>(tm_pca)</span>
+<span id="cb17-15"><a href="#cb17-15" tabindex="-1"></a><span class="co">#&gt; character(0)</span></span></code></pre></div>
+</div>
+<div id="see-also" class="section level2">
+<h2>See also</h2>
+<ul>
+<li><a href="statistical-analysis.html">PCA and clustering</a> builds on
+the scored matrix.</li>
+<li><a href="visualization.html">Plotting and exporting</a> shows how to
+use scaled and clipped data in a heatmap.</li>
+</ul>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

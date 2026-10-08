@@ -1,0 +1,303 @@
+---
+title: "PCA and clustering"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{PCA and clustering}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4.5
+)
+```
+
+tidymatrix wraps the standard R functions for principal component analysis
+(`prcomp()`), hierarchical clustering (`hclust()`) and k-means (`kmeans()`).
+Each analysis runs along the active dimension and does two things:
+
+1. it adds its per-row or per-column results (PC scores, cluster labels) to the
+   active metadata, where they can be filtered, grouped and plotted like any
+   other variable, and
+2. it stores the full result object, which you can retrieve with
+   `get_analysis()`.
+
+```{r load-packages}
+library(tidymatrix)
+library(dplyr, warn.conflicts = FALSE)
+```
+
+## Data
+
+We use the `big5` personality survey (see `?big5`), with careless respondents
+removed and reverse-keyed items re-scored so that a high value always means a
+high trait level. The [Matrix operations](matrix-operations.html) vignette
+explains these steps.
+
+```{r data}
+tm <- tidymatrix(big5_responses, big5_respondents, big5_items) |>
+  activate(rows) |>
+  filter(completion_min > 3.5) |>
+  transform_matrix(\(x, flip) ifelse(flip, 6L - x, x), flip = reversed)
+
+tm
+```
+
+## PCA
+
+### Which way?
+
+The active component decides what the observations are:
+
+* `activate(rows)`: respondents are the observations and items the variables.
+  Each respondent gets PC scores; the loadings describe the items.
+* `activate(columns)`: items are the observations and respondents the
+  variables. Each item gets coordinates in PC space.
+
+### PCA on respondents
+
+```{r pca-rows}
+tm <- tm |>
+  activate(rows) |>
+  compute_prcomp(n_components = 5)
+
+tm |>
+  activate(rows) |>
+  select(respondent_id, row_pca_PC1:row_pca_PC5)
+```
+
+`n_components` limits how many score columns are added to the metadata; the
+stored `prcomp` object always has all of them. Arguments such as `center` and
+`scale.` are passed on to `prcomp()`.
+
+```{r pca-variance}
+pca <- get_analysis(tm, "row_pca")
+round(summary(pca)$importance[, 1:7], 3)
+```
+
+Five components stand out, one for each trait. The loadings are the
+`rotation` element of the `prcomp` object, with one row per item. Adding them
+to the item metadata makes them easy to inspect:
+
+```{r pca-loadings}
+tm <- tm |>
+  activate(columns) |>
+  mutate(
+    loading_PC1 = pca$rotation[item_id, "PC1"],
+    loading_PC2 = pca$rotation[item_id, "PC2"]
+  )
+
+tm |>
+  activate(columns) |>
+  as_tibble() |>
+  group_by(trait) |>
+  summarise(across(c(loading_PC1, loading_PC2), mean))
+```
+
+As usual for PCA, each component mixes several traits. The PC scores can be
+related to anything in the respondent metadata:
+
+```{r pca-scores}
+tm |>
+  activate(rows) |>
+  as_tibble() |>
+  summarise(across(
+    row_pca_PC1:row_pca_PC3,
+    \(pc) cor(pc, life_satisfaction)
+  ))
+```
+
+### PCA on items
+
+With columns active, the items are placed in the space spanned by the
+respondents. Items of the same trait end up close to each other:
+
+```{r pca-cols}
+tm <- tm |>
+  activate(columns) |>
+  compute_prcomp(n_components = 2)
+
+tm |>
+  activate(columns) |>
+  as_tibble() |>
+  group_by(trait) |>
+  summarise(
+    PC1 = mean(column_pca_PC1),
+    PC2 = mean(column_pca_PC2)
+  )
+```
+
+The [Plotting and exporting](visualization.html) vignette plots this.
+
+## Hierarchical clustering
+
+`compute_hclust()` computes a distance matrix with `dist()`, clusters it with
+`hclust()` and, if `k` or `h` is given, cuts the tree and stores the cluster
+labels in `{name}_cluster`.
+
+### Clustering items
+
+Do the answers alone reveal which items belong together?
+
+```{r hclust-items}
+tm <- tm |>
+  activate(columns) |>
+  compute_hclust(k = 5, method = "ward.D2", name = "item_clusters")
+
+tm |>
+  activate(columns) |>
+  as_tibble() |>
+  count(trait, item_clusters_cluster)
+```
+
+Each cluster corresponds to exactly one trait. The dendrogram is the stored
+`hclust` object:
+
+```{r dendrogram, fig.height = 5}
+hc <- get_analysis(tm, "item_clusters")
+plot(hc, main = "Items", xlab = "", sub = "")
+```
+
+This only works because the reverse-keyed items have been re-scored. On the
+raw answers, *"I keep in the background"* is far from *"I start
+conversations"* even though both measure extraversion:
+
+```{r hclust-raw}
+tidymatrix(big5_responses, big5_respondents, big5_items) |>
+  activate(rows) |>
+  filter(completion_min > 3.5) |>
+  activate(columns) |>
+  compute_hclust(k = 5, method = "ward.D2") |>
+  as_tibble() |>
+  count(trait, column_hclust_cluster)
+```
+
+`method` is passed to `hclust()` and `dist_method` to `dist()`. Further
+arguments go to `dist()`.
+
+### Clustering respondents
+
+Clustering the respondents works the same way with rows active:
+
+```{r hclust-rows}
+tm <- tm |>
+  activate(rows) |>
+  compute_hclust(k = 4, method = "ward.D2", name = "resp_hclust")
+
+tm |>
+  activate(rows) |>
+  as_tibble() |>
+  count(resp_hclust_cluster)
+```
+
+(Counting on the tidymatrix itself, `count(resp_hclust_cluster)`, would also
+aggregate the matrix, and so drop the stored analyses; see
+[below](#when-stored-analyses-are-dropped).)
+
+## k-means
+
+`compute_kmeans()` wraps `kmeans()`; arguments like `nstart` and `iter.max`
+are passed on.
+
+```{r kmeans}
+set.seed(42)
+tm <- tm |>
+  activate(rows) |>
+  compute_kmeans(centers = 3, nstart = 25, name = "resp_kmeans")
+
+km <- get_analysis(tm, "resp_kmeans")
+km$size
+```
+
+### Profiling clusters
+
+Cluster labels are ordinary metadata, so the grouping machinery from the
+[Working with rows and columns](dplyr-verbs.html) vignette turns them into a
+cluster × trait profile: average the respondents within each cluster, then
+the items within each trait. Summarising replaces the respondents with
+clusters, so the stored analyses no longer fit the data and are dropped with a
+warning; `tm` itself is unchanged.
+
+```{r profile}
+profile <- tm |>
+  activate(rows) |>
+  group_by(resp_kmeans_cluster) |>
+  summarise(
+    n = n(),
+    age = mean(age),
+    life_satisfaction = mean(life_satisfaction)
+  ) |>
+  activate(columns) |>
+  group_by(trait) |>
+  summarise()
+
+m <- profile$matrix
+dimnames(m) <- list(
+  paste("cluster", profile$row_data$resp_kmeans_cluster),
+  profile$col_data$trait
+)
+
+profile$row_data
+round(m, 2)
+```
+
+Personality traits are continuous and do not form natural clusters, so
+k-means simply cuts the cloud of respondents into regions. The profiles still
+make sense: typically one cluster is high on neuroticism, and it is the one
+with the lowest life satisfaction.
+
+### Comparing clusterings
+
+Several analyses can live side by side as long as they have different names.
+Cross-tabulating their labels compares them:
+
+```{r compare}
+tm |>
+  activate(rows) |>
+  as_tibble() |>
+  with(table(hclust = resp_hclust_cluster, kmeans = resp_kmeans_cluster))
+```
+
+## Managing stored analyses
+
+```{r manage}
+list_analyses(tm)
+
+check_analyses(tm)
+
+tm_small <- remove_analysis(tm, "resp_hclust")
+list_analyses(tm_small)
+```
+
+`remove_analysis(tm)` without a name removes all of them.
+
+## When stored analyses are dropped
+
+A stored object describes the data it was computed on. Once rows or columns
+are removed, reordered, aggregated or transformed, it no longer matches, so
+tidymatrix removes it and warns. The metadata columns stay, because they are still
+correct for the rows and columns that remain.
+
+```{r invalidate}
+tm_filtered <- tm |>
+  activate(rows) |>
+  filter(age >= 30)
+
+list_analyses(tm_filtered)
+
+tm_filtered |>
+  activate(rows) |>
+  select(respondent_id, row_pca_PC1, resp_kmeans_cluster)
+```
+
+Re-run the analysis on the filtered data if you need the full object again.
+
+## See also
+
+* [MDS, t-SNE and UMAP](dimensionality-reduction.html) for other embeddings.
+* [Plotting and exporting](visualization.html) for PCA plots and clustered
+  heatmaps.

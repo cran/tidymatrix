@@ -1,0 +1,321 @@
+---
+title: "Matrix operations"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Matrix operations}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+dplyr verbs change *which* rows and columns a tidymatrix has. Matrix operations
+change the *values*. As elsewhere in the package, the active component decides
+the direction: with rows active an operation works row by row, with columns
+active column by column, and with the matrix active on all values at once.
+
+```{r load-packages}
+library(tidymatrix)
+library(dplyr, warn.conflicts = FALSE)
+
+tm <- tidymatrix(big5_responses, big5_respondents, big5_items)
+```
+
+We use the `big5` personality survey: 400 respondents answering 30 items on a
+1–5 scale (see `?big5`).
+
+## Summary statistics into metadata
+
+`add_stats()` computes statistics along the active dimension and stores them as
+metadata columns. Per-respondent statistics are a standard data quality check
+in surveys: someone who gives the same answer to every question has a standard
+deviation close to zero.
+
+```{r add-stats-rows}
+tm <- tm |>
+  activate(rows) |>
+  add_stats(mean, sd, .names = c("resp_mean", "resp_sd"))
+
+tm |>
+  activate(rows) |>
+  arrange(resp_sd) |>
+  select(respondent_id, resp_mean, resp_sd, completion_min)
+```
+
+The respondents with the least variable answers also finished the survey in a
+couple of minutes. Sorting by completion time shows the other kind of careless
+respondent — those who answered at random, and so have a normal-looking
+standard deviation:
+
+```{r add-stats-speed}
+tm |>
+  activate(rows) |>
+  arrange(completion_min) |>
+  select(respondent_id, resp_sd, completion_min)
+```
+
+We remove both groups and move on with the clean data:
+
+```{r clean}
+tm <- tm |>
+  activate(rows) |>
+  filter(completion_min > 3.5)
+```
+
+Per-item statistics work the same way with columns active. Custom functions
+can be passed as a named list with `.fns`:
+
+```{r add-stats-cols}
+tm |>
+  activate(columns) |>
+  add_stats(.fns = list(
+    item_mean = mean,
+    item_sd = sd,
+    pct_agree = \(x) mean(x >= 4)
+  )) |>
+  select(item_id, item_text, item_mean, item_sd, pct_agree)
+```
+
+## Custom transformations with `transform_matrix()`
+
+`transform_matrix()` applies any function to the matrix. What the function
+receives depends on the active component:
+
+| Active | `fn` receives | Example |
+|---|---|---|
+| `matrix` | the whole matrix | `log`, `\(m) m / 4` |
+| `rows` | one row at a time | per-respondent ranks |
+| `columns` | one column at a time | per-item standardisation |
+
+The function must return values of the same size, and the row and column
+names are preserved. Extra arguments are passed on to the function; with rows
+active they are evaluated in the column metadata, with columns active in the
+row metadata (use `.env$x` for a variable `x` that clashes with a metadata
+column).
+
+### Reverse-scoring items
+
+A questionnaire usually measures each trait with several statements, and the
+answers are later combined, for example averaged, into one score per trait.
+Some of the statements are deliberately worded in the opposite direction.
+These are called *reverse-keyed* items. They keep people who tend to agree
+with everything (or tick the same box throughout) from automatically ending
+up with high scores.
+
+In `big5`, two of the six items per trait are reverse-keyed. For example:
+
+| Trait | Normally keyed | Reverse-keyed |
+|---|---|---|
+| Extraversion | *"I start conversations."* | *"I keep in the background."* |
+| Conscientiousness | *"I finish what I start."* | *"I put off important tasks."* |
+| Neuroticism | *"I worry about things."* | *"I stay calm under pressure."* |
+
+Answering 5 ("strongly agree") to *"I keep in the background"* indicates
+*low* extraversion. Averaged as they are, such answers would cancel out
+the normally keyed ones. So before the items are combined, the answers to
+reverse-keyed items are flipped: 5 becomes 1, 4 becomes 2, 3 stays 3. On a
+1–5 scale that is simply `6 - x`. Afterwards a high value always means a high
+trait level. This step is known as *reverse-scoring*.
+
+Which columns to flip is stored in the column metadata. With rows active the
+function gets one respondent's answers, one value per item. Extra arguments to
+`transform_matrix()` are passed on to the function, and they are evaluated
+with the column metadata as a data mask — just like the arguments of
+`mutate()`. So `flip = reversed` hands the function the `reversed` column,
+which lines up element by element with the answers:
+
+```{r reverse}
+tm_scored <- tm |>
+  activate(rows) |>
+  transform_matrix(\(x, flip) ifelse(flip, 6L - x, x), flip = reversed)
+
+# E4 is positively keyed, E5 is reverse-keyed
+tm$matrix[1:5, c("E4", "E5")]
+tm_scored$matrix[1:5, c("E4", "E5")]
+```
+
+After scoring, items of the same trait correlate positively:
+
+```{r reverse-check}
+round(cor(tm$matrix[, paste0("E", 1:6)])[5:6, 1:4], 2)
+round(cor(tm_scored$matrix[, paste0("E", 1:6)])[5:6, 1:4], 2)
+```
+
+### Whole-matrix transformations
+
+With the matrix active, the function gets the full matrix. Rescaling the 1–5
+answers to a 0–100 scale:
+
+```{r transform-matrix}
+tm_scored |>
+  activate(matrix) |>
+  transform_matrix(\(m) (m - 1) / 4 * 100) |>
+  pull_active() |>
+  head(3)
+```
+
+### Column- and row-wise transformations
+
+With columns active the function is applied to each item separately. For
+example, percentile ranks within each item:
+
+```{r transform-cols}
+tm_scored |>
+  activate(columns) |>
+  transform_matrix(\(x) rank(x) / length(x)) |>
+  activate(matrix) |>
+  pull_active() |>
+  head(3) |>
+  round(2)
+```
+
+Extra arguments are passed on to the function:
+
+```{r transform-args}
+tm_scored |>
+  activate(columns) |>
+  transform_matrix(\(x) x / 4) |>
+  activate(matrix) |>
+  transform_matrix(round, digits = 1) |>
+  pull_active() |>
+  head(3)
+```
+
+## Centering and scaling
+
+`scale()` z-scores the active dimension (mean 0, sd 1), and `center()` only
+subtracts the mean.
+
+### Standardising items
+
+Scaling columns puts every item on the same footing, whatever its mean and
+spread:
+
+```{r scale-cols}
+tm_z <- tm_scored |>
+  activate(columns) |>
+  scale()
+
+round(colMeans(tm_z$matrix)[1:6], 3)
+round(apply(tm_z$matrix, 2, sd)[1:6], 3)
+```
+
+`scale()` takes the usual `center` and `scale` arguments, so
+`scale(center = TRUE, scale = FALSE)` is equivalent to `center()`.
+
+### Removing response style
+
+Some people agree with nearly everything, others are more reserved. In
+psychology this is called *acquiescence*, and a simple way to reduce it is to
+center each respondent's answers on their own mean ("ipsatising"). This is done
+on the raw answers: because positively and reverse-keyed items partly cancel
+out, a respondent's raw mean mostly reflects their general tendency to agree.
+
+```{r center-rows}
+tm_ipsative <- tm |>
+  activate(rows) |>
+  center()
+
+round(rowMeans(tm_ipsative$matrix)[1:5], 3)
+```
+
+## Clipping
+
+`clip_values()` caps values at a minimum and/or maximum. A typical use is to
+limit extreme z-scores before drawing a heatmap, so that a few outliers do not
+use up the whole colour scale:
+
+```{r clip}
+range(tm_z$matrix)
+
+tm_clipped <- tm_z |>
+  activate(matrix) |>
+  clip_values(min = -2, max = 2)
+
+range(tm_clipped$matrix)
+```
+
+## Log transformation
+
+`log_transform()` is a convenience for skewed, count-like data such as gene
+expression or word counts, where a `log2(x + 1)` transformation is standard.
+It is not useful for Likert answers, so here is a small made-up count matrix:
+
+```{r log}
+counts <- tidymatrix(
+  matrix(c(0, 3, 12, 150, 7, 0, 1024, 45, 2), nrow = 3),
+  data.frame(gene = c("g1", "g2", "g3")),
+  data.frame(sample = c("s1", "s2", "s3"))
+)
+
+counts |>
+  activate(matrix) |>
+  log_transform(base = 2, offset = 1) |>
+  pull_active() |>
+  round(2)
+```
+
+## Transposing
+
+`t()` swaps rows and columns, including the metadata. If rows were active,
+columns are active afterwards, so the active *metadata* stays the same.
+
+```{r transpose}
+tm_t <- t(tm_scored |> activate(rows))
+
+dim(tm_scored$matrix)
+dim(tm_t$matrix)
+
+active(tm_t)
+names(tm_t$row_data)
+```
+
+Transposing is useful when a function only works along one direction, or when
+a package expects samples in rows rather than columns.
+
+## Getting the matrix out
+
+`pull_active()` returns the active component: the matrix when the matrix is
+active, otherwise the active metadata.
+
+```{r extract}
+m <- tm_scored |>
+  activate(matrix) |>
+  pull_active()
+
+class(m)
+dim(m)
+```
+
+## Matrix operations and stored analyses
+
+Every operation that changes the values makes stored analysis results
+(principal components, clusterings, ...) out of date, so they are removed with
+a warning. The metadata columns they produced are kept. Transform first,
+analyse afterwards:
+
+```{r invalidation}
+tm_pca <- tm_scored |>
+  activate(columns) |>
+  compute_prcomp(n_components = 2)
+
+list_analyses(tm_pca)
+
+tm_pca <- tm_pca |>
+  activate(columns) |>
+  scale()
+
+list_analyses(tm_pca)
+```
+
+## See also
+
+* [PCA and clustering](statistical-analysis.html) builds on the scored
+  matrix.
+* [Plotting and exporting](visualization.html) shows how to use scaled and
+  clipped data in a heatmap.
